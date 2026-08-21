@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # ─── PostgreSQL ───────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: recruitpro-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: recruitpro
+      POSTGRES_PASSWORD: recruitpro_dev_password
+      POSTGRES_DB: recruitpro
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U recruitpro -d recruitpro']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis ────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: recruitpro-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── NestJS API ──────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+      target: development
+    container_name: recruitpro-api
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://recruitpro:recruitpro_dev_password@postgres:5432/recruitpro?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      - ./apps/api:/app/apps/api
+      - ./libs:/app/libs
+      - /app/node_modules
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─── Angular Frontend ───────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      target: development
+    container_name: recruitpro-web
+    restart: unless-stopped
+    ports:
+      - '4200:4200'
+    volumes:
+      - ./apps/web:/app/apps/web
+      - /app/node_modules
+    depends_on:
+      - api
+
+  # ─── MailHog (dev email testing) ─────────────────────────
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: recruitpro-mailhog
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_data:
