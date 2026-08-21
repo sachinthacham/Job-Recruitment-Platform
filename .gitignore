@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.angular/
+.cache/
+
+# Environment files (never commit real secrets)
+.env
+.env.local
+.env.production
+!.env.example
+!.env.development
+!.env.test
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# OS
+.DS_Store
+*.pem
+
+# Prisma
+apps/api/prisma/*.db
+apps/api/prisma/*.db-journal
+
+# Docker
+docker-compose.override.yml
+
+# Uploads (local dev storage)
+uploads/
+temp/
+
+# Misc
+*.tgz
+.env*.local
