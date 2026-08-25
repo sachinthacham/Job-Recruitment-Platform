@@ -138,7 +138,9 @@ export class AuthService {
     }
 
     if (user.status !== AccountStatus.ACTIVE) {
-      throw new UnauthorizedException('Account is not active. Please contact support.');
+      throw new UnauthorizedException(
+        'Account is not active. Please contact support.',
+      );
     }
 
     // Check account lockout
@@ -220,15 +222,17 @@ export class AuthService {
    * Refresh an access token using a valid refresh token.
    */
   async refreshTokens(refreshToken: string): Promise<AuthTokens> {
-    const decoded = this.tokenService.decodeRefreshToken(refreshToken);
+    // Validates the token against Redis state (not just its signature), marks
+    // it used, and invalidates the whole family on reuse/replay.
+    const rotated = await this.tokenService.rotateRefreshToken(refreshToken);
 
-    if (!decoded) {
-      throw new UnauthorizedException('Invalid refresh token');
+    if (!rotated) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
     // Look up the user to build a fresh payload
     const user = await this.prisma.user.findUnique({
-      where: { id: decoded.sub },
+      where: { id: rotated.userId },
       include: {
         userRoles: {
           include: { role: true },
@@ -240,9 +244,6 @@ export class AuthService {
       throw new UnauthorizedException('User not found or inactive');
     }
 
-    // Revoke old refresh token
-    await this.tokenService.revokeRefreshToken(refreshToken);
-
     // Generate new pair with the same family
     const roles = user.userRoles.map((ur) => ur.role.name);
     const payload: JwtPayload = {
@@ -252,7 +253,10 @@ export class AuthService {
       tenantId: user.tenantId,
     };
 
-    return this.tokenService.generateRotatedTokenPair(payload, decoded.family);
+    return this.tokenService.generateRotatedTokenPair(
+      payload,
+      rotated.familyId,
+    );
   }
 
   /**
@@ -265,7 +269,11 @@ export class AuthService {
   /**
    * Get the current user from JWT payload.
    */
-  async getMe(userId: string): Promise<Omit<AuthResponse['user'], 'tenantId'> & { tenantId: string | null }> {
+  async getMe(
+    userId: string,
+  ): Promise<
+    Omit<AuthResponse['user'], 'tenantId'> & { tenantId: string | null }
+  > {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -302,7 +310,10 @@ export class AuthService {
       this.logger.debug(
         `Password reset requested for unknown email: ${dto.email}`,
       );
-      return { message: 'If an account exists with that email, a reset link has been sent.' };
+      return {
+        message:
+          'If an account exists with that email, a reset link has been sent.',
+      };
     }
 
     // Generate a reset token
@@ -315,12 +326,11 @@ export class AuthService {
 
     // In production, send the email via MailHog / SMTP
     // For development, log the token
-    this.logger.log(
-      `Password reset token for ${user.email}: ${resetToken}`,
-    );
+    this.logger.log(`Password reset token for ${user.email}: ${resetToken}`);
 
     return {
-      message: 'If an account exists with that email, a reset link has been sent.',
+      message:
+        'If an account exists with that email, a reset link has been sent.',
     };
   }
 
