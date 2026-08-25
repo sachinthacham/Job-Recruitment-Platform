@@ -1,6 +1,21 @@
-import { IsString, IsOptional, IsEnum, IsArray, IsUrl, IsInt, Min, IsBoolean, IsDateString } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { Currency, EmploymentType, RemoteType, SkillLevel } from '@prisma/client';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsArray,
+  IsUrl,
+  IsInt,
+  Min,
+  IsBoolean,
+  IsDateString,
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  Currency,
+  EmploymentType,
+  RemoteType,
+  SkillLevel,
+} from '@prisma/client';
 
 export class UpdateCandidateProfileDto {
   @ApiPropertyOptional()
