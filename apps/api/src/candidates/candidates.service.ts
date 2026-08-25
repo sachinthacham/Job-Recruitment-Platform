@@ -1,6 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/services/prisma.service';
-import { UpdateCandidateProfileDto, AddSkillDto, AddEducationDto, AddExperienceDto } from './dto/candidate.dto';
+import {
+  UpdateCandidateProfileDto,
+  AddSkillDto,
+  AddEducationDto,
+  AddExperienceDto,
+} from './dto/candidate.dto';
 
 @Injectable()
 export class CandidatesService {
@@ -43,12 +48,14 @@ export class CandidatesService {
   }
 
   async addSkill(userId: string, skillDto: AddSkillDto) {
-    const profile = await this.prisma.candidateProfile.findUnique({ where: { userId } });
+    const profile = await this.prisma.candidateProfile.findUnique({
+      where: { userId },
+    });
     if (!profile) throw new NotFoundException('Profile not found');
 
     // Free text skill entry logic
     const skillName = skillDto.name.trim().toLowerCase();
-    
+
     let skill = await this.prisma.skill.findUnique({
       where: { name: skillName },
     });
@@ -79,12 +86,14 @@ export class CandidatesService {
         level: skillDto.level,
         yearsOfExperience: skillDto.yearsOfExperience,
       },
-      include: { skill: true }
+      include: { skill: true },
     });
   }
 
   async removeSkill(userId: string, skillId: string) {
-    const profile = await this.prisma.candidateProfile.findUnique({ where: { userId } });
+    const profile = await this.prisma.candidateProfile.findUnique({
+      where: { userId },
+    });
     if (!profile) throw new NotFoundException('Profile not found');
 
     await this.prisma.candidateSkill.delete({
@@ -98,7 +107,9 @@ export class CandidatesService {
   }
 
   async addEducation(userId: string, dto: AddEducationDto) {
-    const profile = await this.prisma.candidateProfile.findUnique({ where: { userId } });
+    const profile = await this.prisma.candidateProfile.findUnique({
+      where: { userId },
+    });
     if (!profile) throw new NotFoundException('Profile not found');
 
     return this.prisma.education.create({
@@ -112,7 +123,9 @@ export class CandidatesService {
   }
 
   async removeEducation(userId: string, educationId: string) {
-    const profile = await this.prisma.candidateProfile.findUnique({ where: { userId } });
+    const profile = await this.prisma.candidateProfile.findUnique({
+      where: { userId },
+    });
     if (!profile) throw new NotFoundException('Profile not found');
 
     await this.prisma.education.deleteMany({
@@ -124,7 +137,9 @@ export class CandidatesService {
   }
 
   async addExperience(userId: string, dto: AddExperienceDto) {
-    const profile = await this.prisma.candidateProfile.findUnique({ where: { userId } });
+    const profile = await this.prisma.candidateProfile.findUnique({
+      where: { userId },
+    });
     if (!profile) throw new NotFoundException('Profile not found');
 
     return this.prisma.workExperience.create({
@@ -138,7 +153,9 @@ export class CandidatesService {
   }
 
   async removeExperience(userId: string, experienceId: string) {
-    const profile = await this.prisma.candidateProfile.findUnique({ where: { userId } });
+    const profile = await this.prisma.candidateProfile.findUnique({
+      where: { userId },
+    });
     if (!profile) throw new NotFoundException('Profile not found');
 
     await this.prisma.workExperience.deleteMany({
