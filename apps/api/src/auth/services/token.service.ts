@@ -21,10 +21,22 @@ export class TokenService {
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
   ) {
-    this.accessSecret = this.configService.get<string>('JWT_ACCESS_SECRET', 'dev-access-secret-change-me');
-    this.refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET', 'dev-refresh-secret-change-me');
-    this.accessExpiresIn = this.configService.get<number>('JWT_ACCESS_EXPIRES_SECONDS', 900); // 15 min
-    this.refreshExpiresIn = this.configService.get<number>('JWT_REFRESH_EXPIRES_SECONDS', 604800); // 7 days
+    this.accessSecret = this.configService.get<string>(
+      'JWT_ACCESS_SECRET',
+      'dev-access-secret-change-me',
+    );
+    this.refreshSecret = this.configService.get<string>(
+      'JWT_REFRESH_SECRET',
+      'dev-refresh-secret-change-me',
+    );
+    this.accessExpiresIn = this.configService.get<number>(
+      'JWT_ACCESS_EXPIRES_SECONDS',
+      900,
+    ); // 15 min
+    this.refreshExpiresIn = this.configService.get<number>(
+      'JWT_REFRESH_EXPIRES_SECONDS',
+      604800,
+    ); // 7 days
   }
 
   /**
@@ -66,10 +78,14 @@ export class TokenService {
   }
 
   /**
-   * Rotate a refresh token — issue a new pair and invalidate the old one.
-   * If the token was already used (replay attack), invalidate the entire family.
+   * Validate a refresh token against Redis state and mark it used.
+   * Returns the userId/familyId to enrich a new pair with, or null if invalid.
+   * If the token was already used or is unknown to Redis (replay attack or
+   * a token revoked via logout), the entire family is invalidated.
    */
-  async rotateRefreshToken(token: string): Promise<{ tokens: AuthTokens; userId: string } | null> {
+  async rotateRefreshToken(
+    token: string,
+  ): Promise<{ userId: string; familyId: string } | null> {
     let decoded: { sub: string; jti: string; family: string };
 
     try {
@@ -84,7 +100,7 @@ export class TokenService {
     );
 
     if (!storedToken) {
-      // Token not found — possible replay attack. Invalidate entire family.
+      // Token not found — possible replay attack, or already revoked. Invalidate entire family.
       this.logger.warn(
         `Refresh token reuse detected for user ${decoded.sub}, family ${decoded.family}`,
       );
@@ -92,7 +108,11 @@ export class TokenService {
       return null;
     }
 
-    const stored = JSON.parse(storedToken) as { userId: string; familyId: string; used: boolean };
+    const stored = JSON.parse(storedToken) as {
+      userId: string;
+      familyId: string;
+      used: boolean;
+    };
 
     if (stored.used) {
       // Already used — replay attack detected
@@ -110,24 +130,7 @@ export class TokenService {
       this.refreshExpiresIn,
     );
 
-    // Generate new token pair with the same family
-    const newRefreshTokenId = uuidv4();
-    const accessPayload: JwtPayload = {
-      sub: decoded.sub,
-      email: '', // Will be enriched by AuthService
-      roles: [],
-      tenantId: null,
-    };
-
-    // Return userId so AuthService can enrich the payload
-    return {
-      tokens: {
-        accessToken: '', // Placeholder — AuthService will fill with enriched payload
-        refreshToken: '',
-        expiresIn: this.accessExpiresIn,
-      },
-      userId: decoded.sub,
-    };
+    return { userId: decoded.sub, familyId: decoded.family };
   }
 
   /**
@@ -184,9 +187,15 @@ export class TokenService {
   /**
    * Decode a refresh token without verifying.
    */
-  decodeRefreshToken(token: string): { sub: string; jti: string; family: string } | null {
+  decodeRefreshToken(
+    token: string,
+  ): { sub: string; jti: string; family: string } | null {
     try {
-      return this.jwtService.verify<{ sub: string; jti: string; family: string }>(token, { secret: this.refreshSecret });
+      return this.jwtService.verify<{
+        sub: string;
+        jti: string;
+        family: string;
+      }>(token, { secret: this.refreshSecret });
     } catch {
       return null;
     }
@@ -204,11 +213,11 @@ export class TokenService {
 
   /**
    * Revoke all refresh tokens for a user.
+   * Not yet wired into AuthService (see audit notes) — currently a log-only stub.
    */
-  async revokeAllUserTokens(userId: string): Promise<void> {
+  revokeAllUserTokens(userId: string): void {
     // We can't easily scan all keys for a user without a set.
     // In production, store user's active families in a set.
-    // For now, we rely on DB-level token invalidation in AuthService.
     this.logger.log(`Revoking all tokens for user ${userId}`);
   }
 
