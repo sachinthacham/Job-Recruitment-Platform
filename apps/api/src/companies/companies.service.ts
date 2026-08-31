@@ -11,23 +11,45 @@ import { CreateCompanyDto, UpdateCompanyDto } from './dto/company.dto';
 export class CompaniesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(
-    tenantId: string,
-    userId: string,
-    createCompanyDto: CreateCompanyDto,
-  ) {
+  async create(userId: string, createCompanyDto: CreateCompanyDto) {
+    const { tenantId: requestedTenantId, ...companyData } = createCompanyDto;
+
     const existingCompany = await this.prisma.company.findUnique({
-      where: { slug: createCompanyDto.slug },
+      where: { slug: companyData.slug },
     });
 
     if (existingCompany) {
       throw new ConflictException('Company with this slug already exists');
     }
 
+    if (requestedTenantId) {
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: requestedTenantId },
+      });
+
+      if (!tenant) {
+        throw new NotFoundException('Tenant not found');
+      }
+    }
+
     return this.prisma.$transaction(async (tx) => {
+      // Platform admins (the only callers of this endpoint) have no tenant of
+      // their own — onboarding a new company means onboarding a new tenant too,
+      // unless an existing tenant id was explicitly supplied.
+      const tenantId =
+        requestedTenantId ??
+        (
+          await tx.tenant.create({
+            data: {
+              name: companyData.name,
+              slug: `${companyData.slug}-${Math.random().toString(36).substring(2, 8)}`,
+            },
+          })
+        ).id;
+
       const company = await tx.company.create({
         data: {
-          ...createCompanyDto,
+          ...companyData,
           tenantId,
         },
       });
@@ -60,16 +82,18 @@ export class CompaniesService {
     });
   }
 
-  async findAll(tenantId: string) {
+  // Candidates and platform admins have no tenant of their own — for them,
+  // this becomes a cross-tenant directory/lookup rather than a scoped one.
+  async findAll(tenantId: string | null) {
     return this.prisma.company.findMany({
-      where: { tenantId, deletedAt: null },
+      where: { ...(tenantId && { tenantId }), deletedAt: null },
       orderBy: { name: 'asc' },
     });
   }
 
-  async findOne(tenantId: string, id: string) {
+  async findOne(tenantId: string | null, id: string) {
     const company = await this.prisma.company.findFirst({
-      where: { id, tenantId, deletedAt: null },
+      where: { id, ...(tenantId && { tenantId }), deletedAt: null },
       include: {
         companyUsers: {
           include: {
@@ -94,14 +118,13 @@ export class CompaniesService {
   }
 
   async update(
-    tenantId: string,
     userId: string,
     isPlatformAdmin: boolean,
     id: string,
     updateCompanyDto: UpdateCompanyDto,
   ) {
     const company = await this.prisma.company.findFirst({
-      where: { id, tenantId, deletedAt: null },
+      where: { id, deletedAt: null },
     });
 
     if (!company) {

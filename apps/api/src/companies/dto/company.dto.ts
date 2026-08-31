@@ -4,6 +4,7 @@ import {
   IsEnum,
   IsArray,
   IsUrl,
+  IsUUID,
   MaxLength,
   IsNumber,
   Min,
@@ -63,6 +64,15 @@ export class CreateCompanyDto {
   @IsArray()
   @IsString({ each: true })
   benefits?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'Attach this company to an existing tenant. Platform admins have no tenant ' +
+      'of their own, so if omitted a brand-new tenant is created for this company.',
+  })
+  @IsOptional()
+  @IsUUID()
+  tenantId?: string;
 }
 
 export class UpdateCompanyDto extends PartialType(CreateCompanyDto) {

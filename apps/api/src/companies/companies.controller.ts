@@ -30,23 +30,19 @@ export class CompaniesController {
     @CurrentUser() user: JwtPayload,
     @Body() createCompanyDto: CreateCompanyDto,
   ) {
-    return this.companiesService.create(
-      user.tenantId!,
-      user.sub,
-      createCompanyDto,
-    );
+    return this.companiesService.create(user.sub, createCompanyDto);
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all companies in tenant' })
   findAll(@CurrentUser() user: JwtPayload) {
-    return this.companiesService.findAll(user.tenantId!);
+    return this.companiesService.findAll(user.tenantId);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get company by id' })
   findOne(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.companiesService.findOne(user.tenantId!, id);
+    return this.companiesService.findOne(user.tenantId, id);
   }
 
   @Patch(':id')
@@ -59,7 +55,6 @@ export class CompaniesController {
   ) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
     return this.companiesService.update(
-      user.tenantId!,
       user.sub,
       isPlatformAdmin,
       id,
