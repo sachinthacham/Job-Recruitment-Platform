@@ -1,4 +1,4 @@
-import { PrismaClient, AccountStatus, CompanySize, JobStatus, EmploymentType, RemoteType, ExperienceLevel, Currency, SkillLevel, ApplicationStatus, InterviewType, InterviewStatus, InterviewRecommendation, OfferStatus, NotificationType, SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
+import { PrismaClient, AccountStatus, CompanySize, JobStatus, EmploymentType, RemoteType, ExperienceLevel, Currency, SkillLevel, ApplicationStatus, InterviewType, InterviewStatus, InterviewRecommendation, OfferStatus, NotificationType, SubscriptionPlan, SubscriptionStatus, PaymentStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -27,6 +27,7 @@ async function main(): Promise<void> {
   await prisma.jobSkill.deleteMany();
   await prisma.job.deleteMany();
   await prisma.candidateSkill.deleteMany();
+  await prisma.skill.deleteMany();
   await prisma.candidateLanguage.deleteMany();
   await prisma.certification.deleteMany();
   await prisma.workExperience.deleteMany();
@@ -96,6 +97,74 @@ async function main(): Promise<void> {
     permissions[p.name] = perm.id;
   }
   console.log('  ✅ Permissions created');
+
+  // ─── Role → Permission grants ─────────────────────────────
+  const grant = async (roleId: string, permissionNames: string[]): Promise<void> => {
+    await prisma.rolePermission.createMany({
+      data: permissionNames.map((name) => ({ roleId, permissionId: permissions[name] })),
+    });
+  };
+
+  await grant(candidateRole.id, [
+    'profile:manage',
+    'jobs:view',
+    'jobs:search',
+    'applications:create',
+    'applications:view_own',
+    'interviews:view_own',
+    'interviews:participate',
+    'messages:send',
+  ]);
+  await grant(hiringManagerRole.id, [
+    'profile:manage',
+    'jobs:view',
+    'candidates:view',
+    'candidates:feedback',
+    'interviews:view_own',
+    'interviews:participate',
+    'analytics:view',
+    'messages:send',
+  ]);
+  await grant(recruiterRole.id, [
+    'profile:manage',
+    'jobs:view',
+    'jobs:search',
+    'jobs:create',
+    'jobs:manage',
+    'applications:view_own',
+    'applications:review',
+    'candidates:view',
+    'candidates:feedback',
+    'interviews:view_own',
+    'interviews:schedule',
+    'interviews:participate',
+    'offers:create',
+    'messages:send',
+    'analytics:view',
+  ]);
+  await grant(companyAdminRole.id, [
+    'profile:manage',
+    'jobs:view',
+    'jobs:search',
+    'jobs:create',
+    'jobs:manage',
+    'applications:view_own',
+    'applications:review',
+    'candidates:view',
+    'candidates:feedback',
+    'interviews:view_own',
+    'interviews:schedule',
+    'interviews:participate',
+    'offers:create',
+    'messages:send',
+    'analytics:view',
+    'company:manage',
+    'users:manage',
+    'subscription:manage',
+  ]);
+  await grant(platformAdminRole.id, ['admin:full', 'jobs:manage_all', 'users:manage']);
+
+  console.log('  ✅ Role permissions granted');
 
   // ─── Tenants ─────────────────────────────────────────────
   const tenantA = await prisma.tenant.create({
@@ -313,6 +382,24 @@ async function main(): Promise<void> {
           ],
         },
       },
+      certifications: {
+        create: {
+          name: 'AWS Certified Solutions Architect – Associate',
+          issuingOrganization: 'Amazon Web Services',
+          issueDate: new Date('2022-04-10'),
+          expiryDate: new Date('2025-04-10'),
+          credentialId: 'AWS-CSA-2022-88213',
+          credentialUrl: 'https://www.credly.com/badges/example-alex',
+        },
+      },
+      languages: {
+        createMany: {
+          data: [
+            { language: 'English', proficiency: 'Native' },
+            { language: 'Spanish', proficiency: 'Intermediate' },
+          ],
+        },
+      },
     },
   });
 
@@ -348,6 +435,28 @@ async function main(): Promise<void> {
             { skillId: skills['TypeScript'], level: SkillLevel.INTERMEDIATE, yearsOfExperience: 2 },
           ],
         },
+      },
+      education: {
+        create: {
+          institution: 'Parsons School of Design',
+          degree: 'Bachelor of Fine Arts',
+          fieldOfStudy: 'Design & Technology',
+          startDate: new Date('2015-09-01'),
+          endDate: new Date('2019-05-20'),
+        },
+      },
+      workExperience: {
+        create: {
+          company: 'Creative Pixel Agency',
+          title: 'UI/UX Designer',
+          location: 'New York, NY',
+          startDate: new Date('2019-07-01'),
+          isCurrent: true,
+          description: 'Designing end-to-end product experiences for SaaS and mobile clients.',
+        },
+      },
+      languages: {
+        create: { language: 'English', proficiency: 'Native' },
       },
     },
   });
@@ -467,8 +576,372 @@ async function main(): Promise<void> {
 
   console.log('  ✅ Jobs created');
 
+  // ─── Resumes ─────────────────────────────────────────────
+  const resume1 = await prisma.resume.create({
+    data: {
+      userId: candidate1.id,
+      fileName: 'Alex_Johnson_Resume.pdf',
+      filePath: '/uploads/resumes/alex-johnson-resume-v2.pdf',
+      fileSize: 184320,
+      mimeType: 'application/pdf',
+      version: 2,
+      isDefault: true,
+    },
+  });
+  await prisma.resume.create({
+    data: {
+      userId: candidate1.id,
+      fileName: 'Alex_Johnson_Resume_v1.pdf',
+      filePath: '/uploads/resumes/alex-johnson-resume-v1.pdf',
+      fileSize: 172032,
+      mimeType: 'application/pdf',
+      version: 1,
+      isDefault: false,
+    },
+  });
+  const resume2 = await prisma.resume.create({
+    data: {
+      userId: candidate2.id,
+      fileName: 'Maria_Garcia_Resume.pdf',
+      filePath: '/uploads/resumes/maria-garcia-resume.pdf',
+      fileSize: 156672,
+      mimeType: 'application/pdf',
+      version: 1,
+      isDefault: true,
+    },
+  });
+  console.log('  ✅ Resumes created');
+
+  // ─── Applications ────────────────────────────────────────
+  const now = Date.now();
+  const daysAgo = (n: number): Date => new Date(now - n * 24 * 60 * 60 * 1000);
+
+  // App1: Alex -> Senior Backend Engineer (TechCorp) — full journey to HIRED
+  const app1 = await prisma.application.create({
+    data: {
+      jobId: job1.id,
+      candidateId: candidate1.id,
+      resumeId: resume1.id,
+      status: ApplicationStatus.HIRED,
+      coverLetter: "I've spent the last five years building high-throughput backend services and would love to bring that experience to TechCorp's platform team.",
+      appliedAt: daysAgo(21),
+    },
+  });
+  await prisma.applicationStatusHistory.createMany({
+    data: [
+      { applicationId: app1.id, previousStatus: null, newStatus: ApplicationStatus.APPLIED, changedById: candidate1.id, createdAt: daysAgo(21) },
+      { applicationId: app1.id, previousStatus: ApplicationStatus.APPLIED, newStatus: ApplicationStatus.UNDER_REVIEW, changedById: recruiter1.id, notes: 'Strong resume, moving to review.', createdAt: daysAgo(18) },
+      { applicationId: app1.id, previousStatus: ApplicationStatus.UNDER_REVIEW, newStatus: ApplicationStatus.SHORTLISTED, changedById: recruiter1.id, notes: 'Great match on required skills.', createdAt: daysAgo(15) },
+      { applicationId: app1.id, previousStatus: ApplicationStatus.SHORTLISTED, newStatus: ApplicationStatus.INTERVIEW, changedById: recruiter1.id, notes: 'Interview scheduled', createdAt: daysAgo(12) },
+      { applicationId: app1.id, previousStatus: ApplicationStatus.INTERVIEW, newStatus: ApplicationStatus.OFFERED, changedById: recruiter1.id, notes: 'Offer sent', createdAt: daysAgo(6) },
+      { applicationId: app1.id, previousStatus: ApplicationStatus.OFFERED, newStatus: ApplicationStatus.HIRED, changedById: candidate1.id, notes: 'Candidate accepted the offer', createdAt: daysAgo(3) },
+    ],
+  });
+
+  const job1Questions = await prisma.screeningQuestion.findMany({
+    where: { jobId: job1.id },
+    orderBy: { orderIndex: 'asc' },
+  });
+  if (job1Questions.length === 3) {
+    await prisma.screeningAnswer.createMany({
+      data: [
+        { applicationId: app1.id, questionId: job1Questions[0].id, answer: 'Yes' },
+        { applicationId: app1.id, questionId: job1Questions[1].id, answer: '6' },
+        { applicationId: app1.id, questionId: job1Questions[2].id, answer: 'I designed and operated an event-driven order pipeline processing 2M+ events/day across a dozen microservices, with a focus on idempotency and observability.' },
+      ],
+    });
+  }
+
+  // App2: Alex -> Frontend Developer (TechCorp) — still under review
+  const app2 = await prisma.application.create({
+    data: {
+      jobId: job2.id,
+      candidateId: candidate1.id,
+      resumeId: resume1.id,
+      status: ApplicationStatus.UNDER_REVIEW,
+      coverLetter: 'While backend is my primary focus, I have deep React experience from full-stack projects and would enjoy contributing to the frontend team.',
+      appliedAt: daysAgo(9),
+    },
+  });
+  await prisma.applicationStatusHistory.createMany({
+    data: [
+      { applicationId: app2.id, previousStatus: null, newStatus: ApplicationStatus.APPLIED, changedById: candidate1.id, createdAt: daysAgo(9) },
+      { applicationId: app2.id, previousStatus: ApplicationStatus.APPLIED, newStatus: ApplicationStatus.UNDER_REVIEW, changedById: recruiter1.id, createdAt: daysAgo(7) },
+    ],
+  });
+
+  // App3: Maria -> Senior UI/UX Designer (DesignStudio) — upcoming interview
+  const app3 = await prisma.application.create({
+    data: {
+      jobId: job3.id,
+      candidateId: candidate2.id,
+      resumeId: resume2.id,
+      status: ApplicationStatus.INTERVIEW,
+      coverLetter: "I'd love to bring my product design background to DesignStudio's Fortune 500 client work.",
+      appliedAt: daysAgo(10),
+    },
+  });
+  await prisma.applicationStatusHistory.createMany({
+    data: [
+      { applicationId: app3.id, previousStatus: null, newStatus: ApplicationStatus.APPLIED, changedById: candidate2.id, createdAt: daysAgo(10) },
+      { applicationId: app3.id, previousStatus: ApplicationStatus.APPLIED, newStatus: ApplicationStatus.SHORTLISTED, changedById: recruiter2.id, notes: 'Portfolio is excellent.', createdAt: daysAgo(8) },
+      { applicationId: app3.id, previousStatus: ApplicationStatus.SHORTLISTED, newStatus: ApplicationStatus.INTERVIEW, changedById: recruiter2.id, notes: 'Interview scheduled', createdAt: daysAgo(2) },
+    ],
+  });
+
+  // App4: Maria -> Senior Backend Engineer (TechCorp) — rejected, wrong specialization
+  const app4 = await prisma.application.create({
+    data: {
+      jobId: job1.id,
+      candidateId: candidate2.id,
+      resumeId: resume2.id,
+      status: ApplicationStatus.REJECTED,
+      appliedAt: daysAgo(14),
+    },
+  });
+  await prisma.applicationStatusHistory.createMany({
+    data: [
+      { applicationId: app4.id, previousStatus: null, newStatus: ApplicationStatus.APPLIED, changedById: candidate2.id, createdAt: daysAgo(14) },
+      { applicationId: app4.id, previousStatus: ApplicationStatus.APPLIED, newStatus: ApplicationStatus.UNDER_REVIEW, changedById: recruiter1.id, createdAt: daysAgo(12) },
+      { applicationId: app4.id, previousStatus: ApplicationStatus.UNDER_REVIEW, newStatus: ApplicationStatus.REJECTED, changedById: recruiter1.id, notes: 'Background is design-focused, not a fit for this backend role.', createdAt: daysAgo(11) },
+    ],
+  });
+
+  console.log('  ✅ Applications created');
+
+  // ─── Interviews ──────────────────────────────────────────
+  // Interview1: App1 (Alex/Backend) — completed, with feedback
+  const interview1 = await prisma.interview.create({
+    data: {
+      applicationId: app1.id,
+      type: InterviewType.TECHNICAL,
+      title: 'Backend Technical Interview',
+      scheduledAt: daysAgo(11),
+      duration: 60,
+      location: null,
+      meetingUrl: 'https://meet.example.com/techcorp-alex-technical',
+      status: InterviewStatus.COMPLETED,
+      notes: 'Focus on system design and API architecture.',
+    },
+  });
+  await prisma.interviewParticipant.createMany({
+    data: [
+      { interviewId: interview1.id, userId: recruiter1.id, role: 'INTERVIEWER' },
+      { interviewId: interview1.id, userId: candidate1.id, role: 'CANDIDATE' },
+    ],
+  });
+  await prisma.interviewFeedback.create({
+    data: {
+      interviewId: interview1.id,
+      reviewerId: recruiter1.id,
+      overallRating: 5,
+      technicalRating: 5,
+      communicationRating: 4,
+      cultureFitRating: 5,
+      strengths: 'Excellent grasp of distributed systems, clear communicator, asked great clarifying questions.',
+      weaknesses: 'Limited exposure to Kubernetes, but a fast learner.',
+      recommendation: InterviewRecommendation.STRONG_HIRE,
+      privateNotes: 'Top candidate this quarter — fast-track the offer.',
+    },
+  });
+
+  // Interview2: App3 (Maria/Design) — upcoming, no feedback yet
+  const interview2 = await prisma.interview.create({
+    data: {
+      applicationId: app3.id,
+      type: InterviewType.VIDEO,
+      title: 'Portfolio Review & Design Chat',
+      scheduledAt: new Date(now + 3 * 24 * 60 * 60 * 1000),
+      duration: 45,
+      meetingUrl: 'https://meet.example.com/designstudio-maria-portfolio',
+      status: InterviewStatus.SCHEDULED,
+      notes: 'Candidate will walk through 2-3 case studies from their portfolio.',
+    },
+  });
+  await prisma.interviewParticipant.createMany({
+    data: [
+      { interviewId: interview2.id, userId: recruiter2.id, role: 'INTERVIEWER' },
+      { interviewId: interview2.id, userId: candidate2.id, role: 'CANDIDATE' },
+    ],
+  });
+
+  console.log('  ✅ Interviews created');
+
+  // ─── Offers ──────────────────────────────────────────────
+  await prisma.offer.create({
+    data: {
+      applicationId: app1.id,
+      candidateId: candidate1.id,
+      salary: 195000,
+      currency: Currency.USD,
+      benefits: 'Health, dental, and vision insurance; 401k match up to 4%; unlimited PTO; annual $2,000 learning stipend.',
+      startDate: new Date(now + 21 * 24 * 60 * 60 * 1000),
+      employmentType: EmploymentType.FULL_TIME,
+      expirationDate: new Date(now + 4 * 24 * 60 * 60 * 1000),
+      additionalTerms: 'Includes a one-time $10,000 signing bonus and equity grant of 5,000 RSUs vesting over 4 years.',
+      status: OfferStatus.ACCEPTED,
+      respondedAt: daysAgo(3),
+      createdById: recruiter1.id,
+    },
+  });
+
+  console.log('  ✅ Offers created');
+
+  // ─── Saved Jobs & Job Alerts ─────────────────────────────
+  await prisma.savedJob.createMany({
+    data: [
+      { userId: candidate2.id, jobId: job1.id },
+      { userId: candidate2.id, jobId: job2.id },
+      { userId: candidate1.id, jobId: job3.id },
+    ],
+  });
+
+  await prisma.jobAlert.createMany({
+    data: [
+      {
+        userId: candidate1.id,
+        title: 'Senior Backend Roles',
+        keywords: ['backend', 'node.js', 'distributed systems'],
+        skills: ['TypeScript', 'Node.js', 'PostgreSQL'],
+        remoteType: RemoteType.HYBRID,
+        employmentType: EmploymentType.FULL_TIME,
+        minSalary: 160000,
+        currency: Currency.USD,
+      },
+      {
+        userId: candidate2.id,
+        title: 'Remote Design Roles',
+        keywords: ['ui', 'ux', 'product design'],
+        skills: ['Figma', 'UI/UX Design'],
+        remoteType: RemoteType.REMOTE,
+        minSalary: 120000,
+        currency: Currency.USD,
+      },
+    ],
+  });
+
+  console.log('  ✅ Saved jobs & job alerts created');
+
+  // ─── Notifications ───────────────────────────────────────
+  await prisma.notification.createMany({
+    data: [
+      {
+        userId: candidate1.id,
+        type: NotificationType.INTERVIEW_SCHEDULED,
+        title: 'Interview scheduled',
+        message: 'An interview "Backend Technical Interview" has been scheduled.',
+        isRead: true,
+        readAt: daysAgo(11),
+        createdAt: daysAgo(12),
+      },
+      {
+        userId: candidate1.id,
+        type: NotificationType.OFFER_RECEIVED,
+        title: 'New job offer',
+        message: 'You have received an offer for "Senior Backend Engineer"',
+        isRead: true,
+        readAt: daysAgo(5),
+        createdAt: daysAgo(6),
+      },
+      {
+        userId: candidate1.id,
+        type: NotificationType.MESSAGE_RECEIVED,
+        title: 'New message',
+        message: 'Sarah Chen sent you a message',
+        isRead: false,
+        createdAt: daysAgo(1),
+      },
+      {
+        userId: candidate2.id,
+        type: NotificationType.APPLICATION_STATUS_CHANGED,
+        title: 'Application status updated',
+        message: 'Your application status changed to rejected',
+        isRead: true,
+        readAt: daysAgo(10),
+        createdAt: daysAgo(11),
+      },
+      {
+        userId: candidate2.id,
+        type: NotificationType.CANDIDATE_SHORTLISTED,
+        title: 'You have been shortlisted',
+        message: 'Your application for "Senior UI/UX Designer" was shortlisted.',
+        isRead: true,
+        readAt: daysAgo(7),
+        createdAt: daysAgo(8),
+      },
+      {
+        userId: candidate2.id,
+        type: NotificationType.INTERVIEW_SCHEDULED,
+        title: 'Interview scheduled',
+        message: 'An interview "Portfolio Review & Design Chat" has been scheduled.',
+        isRead: false,
+        createdAt: daysAgo(2),
+      },
+      {
+        userId: recruiter1.id,
+        type: NotificationType.APPLICATION_SUBMITTED,
+        title: 'New application received',
+        message: 'A candidate applied to "Senior Backend Engineer"',
+        isRead: true,
+        readAt: daysAgo(20),
+        createdAt: daysAgo(21),
+      },
+      {
+        userId: recruiter1.id,
+        type: NotificationType.OFFER_ACCEPTED,
+        title: 'Offer accepted',
+        message: 'The candidate has accepted the offer for "Senior Backend Engineer"',
+        isRead: false,
+        createdAt: daysAgo(3),
+      },
+      {
+        userId: recruiter2.id,
+        type: NotificationType.APPLICATION_SUBMITTED,
+        title: 'New application received',
+        message: 'A candidate applied to "Senior UI/UX Designer"',
+        isRead: false,
+        createdAt: daysAgo(10),
+      },
+    ],
+  });
+
+  console.log('  ✅ Notifications created');
+
+  // ─── Messaging ───────────────────────────────────────────
+  const conversation1 = await prisma.conversation.create({
+    data: {
+      participants: {
+        createMany: { data: [{ userId: recruiter1.id }, { userId: candidate1.id }] },
+      },
+    },
+  });
+  await prisma.message.createMany({
+    data: [
+      { conversationId: conversation1.id, senderId: recruiter1.id, content: 'Hi Alex, thanks for applying! Are you available for a technical interview next week?', createdAt: daysAgo(13) },
+      { conversationId: conversation1.id, senderId: candidate1.id, content: "Hi Sarah, yes I'm available Tuesday or Wednesday afternoon.", createdAt: daysAgo(13) },
+      { conversationId: conversation1.id, senderId: recruiter1.id, content: "Great, I've scheduled you for Wednesday. Looking forward to it!", createdAt: daysAgo(12) },
+      { conversationId: conversation1.id, senderId: recruiter1.id, content: 'Congrats again on the offer, Alex — excited to have you on the team!', createdAt: daysAgo(1) },
+    ],
+  });
+
+  const conversation2 = await prisma.conversation.create({
+    data: {
+      participants: {
+        createMany: { data: [{ userId: recruiter2.id }, { userId: candidate2.id }] },
+      },
+    },
+  });
+  await prisma.message.createMany({
+    data: [
+      { conversationId: conversation2.id, senderId: recruiter2.id, content: 'Hi Maria, loved your portfolio! Do you have time for a chat this week?', createdAt: daysAgo(3) },
+      { conversationId: conversation2.id, senderId: candidate2.id, content: "Thank you! I'm free Thursday or Friday.", createdAt: daysAgo(2) },
+    ],
+  });
+
+  console.log('  ✅ Conversations & messages created');
+
   // ─── Subscriptions ───────────────────────────────────────
-  await prisma.subscription.create({
+  const subscriptionA = await prisma.subscription.create({
     data: {
       tenantId: tenantA.id,
       plan: SubscriptionPlan.PROFESSIONAL,
@@ -478,7 +951,7 @@ async function main(): Promise<void> {
     },
   });
 
-  await prisma.subscription.create({
+  const subscriptionB = await prisma.subscription.create({
     data: {
       tenantId: tenantB.id,
       plan: SubscriptionPlan.STARTER,
@@ -489,6 +962,45 @@ async function main(): Promise<void> {
   });
 
   console.log('  ✅ Subscriptions created');
+
+  // ─── Payments ────────────────────────────────────────────
+  await prisma.payment.createMany({
+    data: [
+      {
+        subscriptionId: subscriptionA.id,
+        amount: 14900,
+        currency: Currency.USD,
+        status: PaymentStatus.COMPLETED,
+        paidAt: daysAgo(2),
+      },
+      {
+        subscriptionId: subscriptionB.id,
+        amount: 4900,
+        currency: Currency.USD,
+        status: PaymentStatus.COMPLETED,
+        paidAt: daysAgo(5),
+      },
+    ],
+  });
+
+  console.log('  ✅ Payments created');
+
+  // ─── Audit Logs ──────────────────────────────────────────
+  await prisma.auditLog.createMany({
+    data: [
+      { userId: recruiter1.id, tenantId: tenantA.id, action: 'JOB_CREATED', entityType: 'Job', entityId: job1.id, newValue: { title: job1.title, status: job1.status }, createdAt: daysAgo(25) },
+      { userId: recruiter1.id, tenantId: tenantA.id, action: 'JOB_CREATED', entityType: 'Job', entityId: job2.id, newValue: { title: job2.title, status: job2.status }, createdAt: daysAgo(24) },
+      { userId: recruiter2.id, tenantId: tenantB.id, action: 'JOB_CREATED', entityType: 'Job', entityId: job3.id, newValue: { title: job3.title, status: job3.status }, createdAt: daysAgo(23) },
+      { userId: recruiter1.id, tenantId: tenantA.id, action: 'INTERVIEW_SCHEDULED', entityType: 'Interview', entityId: interview1.id, newValue: { title: interview1.title }, createdAt: daysAgo(12) },
+      { userId: recruiter1.id, tenantId: tenantA.id, action: 'OFFER_SENT', entityType: 'Offer', entityId: app1.id, newValue: { status: 'SENT' }, createdAt: daysAgo(6) },
+      { userId: candidate1.id, tenantId: tenantA.id, action: 'OFFER_ACCEPTED', entityType: 'Offer', entityId: app1.id, newValue: { status: 'ACCEPTED' }, createdAt: daysAgo(3) },
+      { userId: recruiter1.id, tenantId: tenantA.id, action: 'APPLICATION_STATUS_CHANGED', entityType: 'Application', entityId: app4.id, previousValue: { status: 'UNDER_REVIEW' }, newValue: { status: 'REJECTED' }, createdAt: daysAgo(11) },
+      { userId: null, tenantId: tenantA.id, action: 'SUBSCRIPTION_CREATED', entityType: 'Subscription', entityId: subscriptionA.id, newValue: { plan: 'PROFESSIONAL' }, createdAt: daysAgo(30) },
+      { userId: null, tenantId: tenantB.id, action: 'SUBSCRIPTION_CREATED', entityType: 'Subscription', entityId: subscriptionB.id, newValue: { plan: 'STARTER' }, createdAt: daysAgo(30) },
+    ],
+  });
+
+  console.log('  ✅ Audit logs created');
 
   console.log('\n🎉 Seed completed successfully!');
   console.log('\n  Test Accounts (password: Password123!):');
