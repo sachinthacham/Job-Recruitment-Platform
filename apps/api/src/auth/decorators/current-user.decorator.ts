@@ -1,5 +1,8 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import type { Request } from 'express';
 import { JwtPayload } from '../dto/auth.dto';
+
+type RequestWithUser = Request & { user?: JwtPayload };
 
 /**
  * Extract the current user from the request (set by JwtAuthGuard).
@@ -20,8 +23,8 @@ import { JwtPayload } from '../dto/auth.dto';
  */
 export const CurrentUser = createParamDecorator(
   (data: keyof JwtPayload | undefined, ctx: ExecutionContext) => {
-    const request = ctx.switchToHttp().getRequest();
-    const user = request.user as JwtPayload;
+    const request = ctx.switchToHttp().getRequest<RequestWithUser>();
+    const user = request.user;
 
     if (data) {
       return user?.[data];

@@ -39,7 +39,10 @@ export class RegisterDto {
   @MaxLength(100)
   lastName: string;
 
-  @ApiPropertyOptional({ enum: ['CANDIDATE', 'RECRUITER'], default: 'CANDIDATE' })
+  @ApiPropertyOptional({
+    enum: ['CANDIDATE', 'RECRUITER'],
+    default: 'CANDIDATE',
+  })
   @IsOptional()
   @IsEnum(['CANDIDATE', 'RECRUITER'])
   role?: 'CANDIDATE' | 'RECRUITER';
@@ -125,7 +128,7 @@ export interface AuthResponse {
 }
 
 export interface JwtPayload {
-  sub: string;       // user ID
+  sub: string; // user ID
   email: string;
   roles: string[];
   tenantId: string | null;

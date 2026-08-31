@@ -14,6 +14,7 @@ import {
   ApiOkResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './services/auth.service';
 import {
   RegisterDto,
@@ -23,7 +24,6 @@ import {
   ResetPasswordDto,
   ChangePasswordDto,
   AuthResponse,
-  JwtPayload,
 } from './dto/auth.dto';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -38,6 +38,7 @@ export class AuthController {
    * Register a new user account.
    */
   @Public()
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
   @Post('register')
   @ApiOperation({ summary: 'Register a new user' })
   @ApiCreatedResponse({ description: 'User registered successfully' })
@@ -49,6 +50,7 @@ export class AuthController {
    * Authenticate with email and password.
    */
   @Public()
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login with email and password' })
@@ -99,6 +101,7 @@ export class AuthController {
    * Request a password reset email.
    */
   @Public()
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request password reset' })
@@ -111,6 +114,7 @@ export class AuthController {
    * Reset password using a valid reset token.
    */
   @Public()
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset password with token' })
