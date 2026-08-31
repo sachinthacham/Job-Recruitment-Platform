@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
@@ -10,6 +10,20 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
+
+const bootstrapLogger = new Logger('Bootstrap');
+
+// Never let an unhandled rejection or a stray exception take the process
+// down silently in production — log it and fail fast so the orchestrator
+// (Docker/Kubernetes) can restart a clean instance.
+process.on('unhandledRejection', (reason) => {
+  bootstrapLogger.error('Unhandled promise rejection', reason as Error);
+});
+
+process.on('uncaughtException', (error) => {
+  bootstrapLogger.error('Uncaught exception — shutting down', error.stack);
+  process.exit(1);
+});
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
@@ -22,17 +36,14 @@ async function bootstrap(): Promise<void> {
   const configService = app.get(ConfigService);
   const port = configService.get<number>('APP_PORT', 3000);
   const apiPrefix = configService.get<string>('API_PREFIX', 'api/v1');
-  const corsOrigins = configService.get<string>('CORS_ORIGINS', 'http://localhost:4200');
+  const corsOrigins = configService.get<string>(
+    'CORS_ORIGINS',
+    'http://localhost:4200',
+  );
 
   // ─── Global Prefix ─────────────────────────────────────
   app.setGlobalPrefix(apiPrefix, {
     exclude: ['health', 'health/live', 'health/ready'],
-  });
-
-  // ─── API Versioning ─────────────────────────────────────
-  app.enableVersioning({
-    type: VersioningType.URI,
-    defaultVersion: '1',
   });
 
   // ─── Security ──────────────────────────────────────────
@@ -56,9 +67,9 @@ async function bootstrap(): Promise<void> {
   // ─── Global Pipes ─────────────────────────────────────
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,          // Strip properties not in DTO
+      whitelist: true, // Strip properties not in DTO
       forbidNonWhitelisted: true, // Throw on unknown properties
-      transform: true,          // Auto-transform payloads to DTO instances
+      transform: true, // Auto-transform payloads to DTO instances
       transformOptions: {
         enableImplicitConversion: true,
       },
@@ -135,4 +146,4 @@ async function bootstrap(): Promise<void> {
   `);
 }
 
-bootstrap();
+void bootstrap();

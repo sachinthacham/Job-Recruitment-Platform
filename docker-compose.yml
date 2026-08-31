@@ -11,7 +11,7 @@ services:
       POSTGRES_PASSWORD: recruitpro_dev_password
       POSTGRES_DB: recruitpro
     ports:
-      - '5432:5432'
+      - '5433:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -26,7 +26,7 @@ services:
     container_name: recruitpro-redis
     restart: unless-stopped
     ports:
-      - '6379:6379'
+      - '6380:6379'
     volumes:
       - redis_data:/data
     healthcheck:
@@ -44,7 +44,7 @@ services:
     container_name: recruitpro-api
     restart: unless-stopped
     ports:
-      - '3000:3000'
+      - '3001:3000'
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://recruitpro:recruitpro_dev_password@postgres:5432/recruitpro?schema=public

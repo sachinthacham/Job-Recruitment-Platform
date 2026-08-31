@@ -151,16 +151,16 @@ All API responses follow a consistent envelope:
 ## Development Phases
 
 - [x] **Phase 1** — Foundation (project structure, database, health, Swagger)
-- [ ] **Phase 2** — Identity (auth, JWT, RBAC, permissions)
-- [ ] **Phase 3** — Companies & Profiles
-- [ ] **Phase 4** — Jobs (CRUD, search, lifecycle)
-- [ ] **Phase 5** — Applications & Pipeline
-- [ ] **Phase 6** — Interviews & Feedback
-- [ ] **Phase 7** — Offers
-- [ ] **Phase 8** — Notifications & Messaging
-- [ ] **Phase 9** — Analytics
-- [ ] **Phase 10** — Subscriptions
-- [ ] **Phase 11** — Production Hardening
+- [x] **Phase 2** — Identity (auth, JWT, RBAC, permissions)
+- [x] **Phase 3** — Companies & Profiles
+- [x] **Phase 4** — Jobs (CRUD, search, lifecycle)
+- [x] **Phase 5** — Applications & Pipeline
+- [x] **Phase 6** — Interviews & Feedback
+- [x] **Phase 7** — Offers
+- [x] **Phase 8** — Notifications & Messaging
+- [x] **Phase 9** — Analytics
+- [x] **Phase 10** — Subscriptions
+- [x] **Phase 11** — Production Hardening
 - [ ] **Phase 12** — CI/CD & Deployment
 
 ## License
