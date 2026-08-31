@@ -6,7 +6,11 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../common/services/prisma.service';
-import { ApplicationStatus, InterviewStatus } from '@prisma/client';
+import {
+  ApplicationStatus,
+  InterviewStatus,
+  NotificationType,
+} from '@prisma/client';
 import {
   ScheduleInterviewDto,
   UpdateInterviewDto,
@@ -15,6 +19,7 @@ import {
   SubmitInterviewFeedbackDto,
 } from './dto/interview.dto';
 import { PaginatedResponseDto } from '../common/dto/pagination.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const TERMINAL_STATUSES: InterviewStatus[] = [
   InterviewStatus.COMPLETED,
@@ -47,7 +52,10 @@ const INTERVIEW_INCLUDE = {
 
 @Injectable()
 export class InterviewsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   private async assertCompanyAccess(
     userId: string,
@@ -69,9 +77,12 @@ export class InterviewsService {
     }
   }
 
-  private async findInterviewOrThrow(tenantId: string, interviewId: string) {
+  // Ownership/company access is fully determined by candidateId and companyId
+  // (both globally unique), so these lookups never need a separate tenant filter —
+  // which matters because candidates and platform admins have no tenantId of their own.
+  private async findInterviewOrThrow(interviewId: string) {
     const interview = await this.prisma.interview.findFirst({
-      where: { id: interviewId, application: { job: { tenantId } } },
+      where: { id: interviewId },
       include: INTERVIEW_INCLUDE,
     });
 
@@ -83,13 +94,12 @@ export class InterviewsService {
   }
 
   async schedule(
-    tenantId: string,
     userId: string,
     isPlatformAdmin: boolean,
     dto: ScheduleInterviewDto,
   ) {
     const application = await this.prisma.application.findFirst({
-      where: { id: dto.applicationId, job: { tenantId } },
+      where: { id: dto.applicationId },
       include: { job: { select: { companyId: true } } },
     });
 
@@ -107,8 +117,8 @@ export class InterviewsService {
       (id) => id !== application.candidateId,
     );
 
-    return this.prisma.$transaction(async (tx) => {
-      const interview = await tx.interview.create({
+    const interview = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.interview.create({
         data: {
           applicationId: dto.applicationId,
           type: dto.type,
@@ -124,12 +134,12 @@ export class InterviewsService {
       await tx.interviewParticipant.createMany({
         data: [
           ...interviewerIds.map((interviewerId) => ({
-            interviewId: interview.id,
+            interviewId: created.id,
             userId: interviewerId,
             role: 'INTERVIEWER',
           })),
           {
-            interviewId: interview.id,
+            interviewId: created.id,
             userId: application.candidateId,
             role: 'CANDIDATE',
           },
@@ -153,17 +163,23 @@ export class InterviewsService {
         });
       }
 
-      return interview;
+      return created;
     });
+
+    await this.notifications.create(
+      application.candidateId,
+      NotificationType.INTERVIEW_SCHEDULED,
+      'Interview scheduled',
+      `An interview "${dto.title}" has been scheduled for ${new Date(dto.scheduledAt).toLocaleString()}`,
+      { interviewId: interview.id, applicationId: application.id },
+    );
+
+    return interview;
   }
 
-  async findMyInterviews(
-    tenantId: string,
-    candidateId: string,
-    filterDto: InterviewFilterDto,
-  ) {
+  async findMyInterviews(candidateId: string, filterDto: InterviewFilterDto) {
     const where = {
-      application: { candidateId, job: { tenantId } },
+      application: { candidateId },
       ...(filterDto.status && { status: filterDto.status }),
     };
 
@@ -187,14 +203,13 @@ export class InterviewsService {
   }
 
   async findByApplication(
-    tenantId: string,
     userId: string,
     isPlatformAdmin: boolean,
     applicationId: string,
     filterDto: InterviewFilterDto,
   ) {
     const application = await this.prisma.application.findFirst({
-      where: { id: applicationId, job: { tenantId } },
+      where: { id: applicationId },
       include: { job: { select: { companyId: true } } },
     });
 
@@ -232,13 +247,8 @@ export class InterviewsService {
     );
   }
 
-  async findOne(
-    tenantId: string,
-    userId: string,
-    isPlatformAdmin: boolean,
-    interviewId: string,
-  ) {
-    const interview = await this.findInterviewOrThrow(tenantId, interviewId);
+  async findOne(userId: string, isPlatformAdmin: boolean, interviewId: string) {
+    const interview = await this.findInterviewOrThrow(interviewId);
     const isOwner = interview.application.candidateId === userId;
 
     if (!isOwner && !isPlatformAdmin) {
@@ -253,13 +263,12 @@ export class InterviewsService {
   }
 
   async update(
-    tenantId: string,
     userId: string,
     isPlatformAdmin: boolean,
     interviewId: string,
     dto: UpdateInterviewDto,
   ) {
-    const interview = await this.findInterviewOrThrow(tenantId, interviewId);
+    const interview = await this.findInterviewOrThrow(interviewId);
 
     await this.assertCompanyAccess(
       userId,
@@ -284,13 +293,12 @@ export class InterviewsService {
   }
 
   async updateStatus(
-    tenantId: string,
     userId: string,
     isPlatformAdmin: boolean,
     interviewId: string,
     dto: UpdateInterviewStatusDto,
   ) {
-    const interview = await this.findInterviewOrThrow(tenantId, interviewId);
+    const interview = await this.findInterviewOrThrow(interviewId);
 
     await this.assertCompanyAccess(
       userId,
@@ -304,32 +312,38 @@ export class InterviewsService {
       );
     }
 
-    return this.prisma.interview.update({
+    const updated = await this.prisma.interview.update({
       where: { id: interviewId },
       data: { status: dto.status },
       include: INTERVIEW_INCLUDE,
     });
+
+    if (dto.status === InterviewStatus.CANCELLED) {
+      await this.notifications.create(
+        interview.application.candidateId,
+        NotificationType.INTERVIEW_CANCELLED,
+        'Interview cancelled',
+        `Your interview "${interview.title}" has been cancelled`,
+        { interviewId, applicationId: interview.application.id },
+      );
+    }
+
+    return updated;
   }
 
-  async cancel(
-    tenantId: string,
-    userId: string,
-    isPlatformAdmin: boolean,
-    interviewId: string,
-  ) {
-    return this.updateStatus(tenantId, userId, isPlatformAdmin, interviewId, {
+  async cancel(userId: string, isPlatformAdmin: boolean, interviewId: string) {
+    return this.updateStatus(userId, isPlatformAdmin, interviewId, {
       status: InterviewStatus.CANCELLED,
     });
   }
 
   async submitFeedback(
-    tenantId: string,
     userId: string,
     isPlatformAdmin: boolean,
     interviewId: string,
     dto: SubmitInterviewFeedbackDto,
   ) {
-    const interview = await this.findInterviewOrThrow(tenantId, interviewId);
+    const interview = await this.findInterviewOrThrow(interviewId);
 
     await this.assertCompanyAccess(
       userId,
@@ -353,12 +367,11 @@ export class InterviewsService {
   }
 
   async findFeedback(
-    tenantId: string,
     userId: string,
     isPlatformAdmin: boolean,
     interviewId: string,
   ) {
-    const interview = await this.findInterviewOrThrow(tenantId, interviewId);
+    const interview = await this.findInterviewOrThrow(interviewId);
 
     await this.assertCompanyAccess(
       userId,

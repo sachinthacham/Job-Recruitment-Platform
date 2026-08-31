@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InterviewsService } from './interviews.service';
 import { PrismaService } from '../common/services/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   ApplicationStatus,
   InterviewStatus,
@@ -46,6 +47,7 @@ describe('InterviewsService', () => {
       providers: [
         InterviewsService,
         { provide: PrismaService, useValue: prisma },
+        { provide: NotificationsService, useValue: { create: jest.fn() } },
       ],
     }).compile();
 
@@ -69,9 +71,9 @@ describe('InterviewsService', () => {
     it('throws NotFoundException when the application does not exist in this tenant', async () => {
       prisma.application.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.schedule('tenant-1', 'recruiter-1', false, dto),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.schedule('recruiter-1', false, dto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('throws ForbiddenException when the recruiter is not part of the job company', async () => {
@@ -85,9 +87,9 @@ describe('InterviewsService', () => {
         companyId: 'company-2',
       });
 
-      await expect(
-        service.schedule('tenant-1', 'recruiter-1', false, dto),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.schedule('recruiter-1', false, dto)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('creates the interview when the application exists and access is granted', async () => {
@@ -101,12 +103,7 @@ describe('InterviewsService', () => {
         companyId: 'company-1',
       });
 
-      const result = await service.schedule(
-        'tenant-1',
-        'recruiter-1',
-        false,
-        dto,
-      );
+      const result = await service.schedule('recruiter-1', false, dto);
 
       expect(result).toEqual({ id: 'interview-1' });
     });
@@ -117,7 +114,7 @@ describe('InterviewsService', () => {
       prisma.interview.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateStatus('tenant-1', 'recruiter-1', false, 'interview-1', {
+        service.updateStatus('recruiter-1', false, 'interview-1', {
           status: InterviewStatus.CONFIRMED,
         }),
       ).rejects.toThrow(NotFoundException);
@@ -137,7 +134,7 @@ describe('InterviewsService', () => {
       });
 
       await expect(
-        service.updateStatus('tenant-1', 'recruiter-1', false, 'interview-1', {
+        service.updateStatus('recruiter-1', false, 'interview-1', {
           status: InterviewStatus.COMPLETED,
         }),
       ).rejects.toThrow(BadRequestException);
@@ -165,13 +162,7 @@ describe('InterviewsService', () => {
       prisma.interviewFeedback.findUnique.mockResolvedValue({ id: 'fb-1' });
 
       await expect(
-        service.submitFeedback(
-          'tenant-1',
-          'recruiter-1',
-          false,
-          'interview-1',
-          dto,
-        ),
+        service.submitFeedback('recruiter-1', false, 'interview-1', dto),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -191,7 +182,6 @@ describe('InterviewsService', () => {
       prisma.interviewFeedback.create.mockResolvedValue({ id: 'fb-1' });
 
       const result = await service.submitFeedback(
-        'tenant-1',
         'recruiter-1',
         false,
         'interview-1',

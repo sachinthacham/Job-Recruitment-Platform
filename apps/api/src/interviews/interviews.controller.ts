@@ -36,12 +36,7 @@ export class InterviewsController {
   @ApiOperation({ summary: 'Schedule an interview for an application' })
   schedule(@CurrentUser() user: JwtPayload, @Body() dto: ScheduleInterviewDto) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
-    return this.interviewsService.schedule(
-      user.tenantId!,
-      user.sub,
-      isPlatformAdmin,
-      dto,
-    );
+    return this.interviewsService.schedule(user.sub, isPlatformAdmin, dto);
   }
 
   @Get('me')
@@ -51,11 +46,7 @@ export class InterviewsController {
     @CurrentUser() user: JwtPayload,
     @Query() filterDto: InterviewFilterDto,
   ) {
-    return this.interviewsService.findMyInterviews(
-      user.tenantId!,
-      user.sub,
-      filterDto,
-    );
+    return this.interviewsService.findMyInterviews(user.sub, filterDto);
   }
 
   @Get('application/:applicationId')
@@ -68,7 +59,6 @@ export class InterviewsController {
   ) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
     return this.interviewsService.findByApplication(
-      user.tenantId!,
       user.sub,
       isPlatformAdmin,
       applicationId,
@@ -81,12 +71,7 @@ export class InterviewsController {
   @ApiOperation({ summary: 'Get a single interview by id' })
   findOne(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
-    return this.interviewsService.findOne(
-      user.tenantId!,
-      user.sub,
-      isPlatformAdmin,
-      id,
-    );
+    return this.interviewsService.findOne(user.sub, isPlatformAdmin, id);
   }
 
   @Patch(':id')
@@ -98,13 +83,7 @@ export class InterviewsController {
     @Body() dto: UpdateInterviewDto,
   ) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
-    return this.interviewsService.update(
-      user.tenantId!,
-      user.sub,
-      isPlatformAdmin,
-      id,
-      dto,
-    );
+    return this.interviewsService.update(user.sub, isPlatformAdmin, id, dto);
   }
 
   @Patch(':id/status')
@@ -117,7 +96,6 @@ export class InterviewsController {
   ) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
     return this.interviewsService.updateStatus(
-      user.tenantId!,
       user.sub,
       isPlatformAdmin,
       id,
@@ -130,12 +108,7 @@ export class InterviewsController {
   @ApiOperation({ summary: 'Cancel an interview' })
   cancel(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
-    return this.interviewsService.cancel(
-      user.tenantId!,
-      user.sub,
-      isPlatformAdmin,
-      id,
-    );
+    return this.interviewsService.cancel(user.sub, isPlatformAdmin, id);
   }
 
   @Post(':id/feedback')
@@ -148,7 +121,6 @@ export class InterviewsController {
   ) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
     return this.interviewsService.submitFeedback(
-      user.tenantId!,
       user.sub,
       isPlatformAdmin,
       id,
@@ -161,11 +133,6 @@ export class InterviewsController {
   @ApiOperation({ summary: 'Get all feedback submitted for an interview' })
   findFeedback(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
-    return this.interviewsService.findFeedback(
-      user.tenantId!,
-      user.sub,
-      isPlatformAdmin,
-      id,
-    );
+    return this.interviewsService.findFeedback(user.sub, isPlatformAdmin, id);
   }
 }
