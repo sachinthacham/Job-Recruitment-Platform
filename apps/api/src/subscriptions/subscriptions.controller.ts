@@ -54,6 +54,7 @@ export class SubscriptionsController {
   subscribe(@CurrentUser() user: JwtPayload, @Body() dto: SubscribeDto) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
     return this.subscriptionsService.subscribe(
+      user.sub,
       user.tenantId,
       isPlatformAdmin,
       dto,
@@ -69,6 +70,7 @@ export class SubscriptionsController {
   ) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
     return this.subscriptionsService.cancel(
+      user.sub,
       user.tenantId,
       isPlatformAdmin,
       query.tenantId,
