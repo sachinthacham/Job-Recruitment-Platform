@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ApplicationsService } from './applications.service';
 import { PrismaService } from '../common/services/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ApplicationStatus, JobStatus } from '@prisma/client';
 
 describe('ApplicationsService', () => {
@@ -45,6 +46,7 @@ describe('ApplicationsService', () => {
       providers: [
         ApplicationsService,
         { provide: PrismaService, useValue: prisma },
+        { provide: NotificationsService, useValue: { create: jest.fn() } },
       ],
     }).compile();
 
@@ -60,7 +62,7 @@ describe('ApplicationsService', () => {
       prisma.job.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.apply('tenant-1', 'candidate-1', { jobId: 'job-1' }),
+        service.apply('candidate-1', { jobId: 'job-1' }),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -72,7 +74,7 @@ describe('ApplicationsService', () => {
       prisma.application.findUnique.mockResolvedValue({ id: 'existing-app' });
 
       await expect(
-        service.apply('tenant-1', 'candidate-1', { jobId: 'job-1' }),
+        service.apply('candidate-1', { jobId: 'job-1' }),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -83,7 +85,7 @@ describe('ApplicationsService', () => {
       });
       prisma.application.findUnique.mockResolvedValue(null);
 
-      const result = await service.apply('tenant-1', 'candidate-1', {
+      const result = await service.apply('candidate-1', {
         jobId: 'job-1',
       });
 
@@ -96,7 +98,7 @@ describe('ApplicationsService', () => {
       prisma.application.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateStatus('tenant-1', 'recruiter-1', false, 'app-1', {
+        service.updateStatus('recruiter-1', false, 'app-1', {
           status: ApplicationStatus.SHORTLISTED,
         }),
       ).rejects.toThrow(NotFoundException);
@@ -113,7 +115,7 @@ describe('ApplicationsService', () => {
       });
 
       await expect(
-        service.updateStatus('tenant-1', 'recruiter-1', false, 'app-1', {
+        service.updateStatus('recruiter-1', false, 'app-1', {
           status: ApplicationStatus.SHORTLISTED,
         }),
       ).rejects.toThrow('access to this company');
@@ -130,7 +132,7 @@ describe('ApplicationsService', () => {
       });
 
       await expect(
-        service.updateStatus('tenant-1', 'recruiter-1', false, 'app-1', {
+        service.updateStatus('recruiter-1', false, 'app-1', {
           status: ApplicationStatus.SHORTLISTED,
         }),
       ).rejects.toThrow(BadRequestException);
@@ -141,9 +143,9 @@ describe('ApplicationsService', () => {
     it('throws NotFoundException when the application does not belong to the candidate', async () => {
       prisma.application.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.withdraw('tenant-1', 'candidate-1', 'app-1'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.withdraw('candidate-1', 'app-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('throws BadRequestException when the application is already finalized', async () => {
@@ -152,9 +154,9 @@ describe('ApplicationsService', () => {
         status: ApplicationStatus.HIRED,
       });
 
-      await expect(
-        service.withdraw('tenant-1', 'candidate-1', 'app-1'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.withdraw('candidate-1', 'app-1')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

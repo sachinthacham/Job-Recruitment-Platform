@@ -33,7 +33,7 @@ export class ApplicationsController {
   @Roles('CANDIDATE')
   @ApiOperation({ summary: 'Apply to a job' })
   apply(@CurrentUser() user: JwtPayload, @Body() dto: CreateApplicationDto) {
-    return this.applicationsService.apply(user.tenantId!, user.sub, dto);
+    return this.applicationsService.apply(user.sub, dto);
   }
 
   @Get('me')
@@ -43,11 +43,7 @@ export class ApplicationsController {
     @CurrentUser() user: JwtPayload,
     @Query() filterDto: ApplicationFilterDto,
   ) {
-    return this.applicationsService.findMyApplications(
-      user.tenantId!,
-      user.sub,
-      filterDto,
-    );
+    return this.applicationsService.findMyApplications(user.sub, filterDto);
   }
 
   @Get('job/:jobId')
@@ -62,7 +58,6 @@ export class ApplicationsController {
   ) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
     return this.applicationsService.findJobApplications(
-      user.tenantId!,
       user.sub,
       isPlatformAdmin,
       jobId,
@@ -75,12 +70,7 @@ export class ApplicationsController {
   @ApiOperation({ summary: 'Get a single application by id' })
   findOne(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
-    return this.applicationsService.findOne(
-      user.tenantId!,
-      user.sub,
-      isPlatformAdmin,
-      id,
-    );
+    return this.applicationsService.findOne(user.sub, isPlatformAdmin, id);
   }
 
   @Patch(':id/status')
@@ -95,7 +85,6 @@ export class ApplicationsController {
   ) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
     return this.applicationsService.updateStatus(
-      user.tenantId!,
       user.sub,
       isPlatformAdmin,
       id,
@@ -107,6 +96,6 @@ export class ApplicationsController {
   @Roles('CANDIDATE')
   @ApiOperation({ summary: 'Withdraw an application' })
   withdraw(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.applicationsService.withdraw(user.tenantId!, user.sub, id);
+    return this.applicationsService.withdraw(user.sub, id);
   }
 }
