@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../common/services/prisma.service';
+import { NotificationType } from '@prisma/client';
 import {
   CreateConversationDto,
   SendMessageDto,
@@ -12,6 +13,7 @@ import {
   MessageFilterDto,
 } from './dto/messaging.dto';
 import { PaginatedResponseDto } from '../common/dto/pagination.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const CONVERSATION_INCLUDE = {
   participants: {
@@ -29,7 +31,10 @@ const CONVERSATION_INCLUDE = {
 
 @Injectable()
 export class MessagingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   private async assertParticipant(
     conversationId: string,
@@ -190,6 +195,23 @@ export class MessagingService {
         data: { updatedAt: new Date() },
       }),
     ]);
+
+    const recipients = await this.prisma.conversationParticipant.findMany({
+      where: { conversationId, userId: { not: userId } },
+      select: { userId: true },
+    });
+
+    await Promise.all(
+      recipients.map((recipient) =>
+        this.notifications.create(
+          recipient.userId,
+          NotificationType.MESSAGE_RECEIVED,
+          'New message',
+          `${message.sender.firstName} ${message.sender.lastName} sent you a message`,
+          { conversationId, messageId: message.id },
+        ),
+      ),
+    );
 
     return message;
   }

@@ -6,12 +6,15 @@ import {
 } from '@nestjs/common';
 import { MessagingService } from './messaging.service';
 import { PrismaService } from '../common/services/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 describe('MessagingService', () => {
   let service: MessagingService;
+  let notifications: { create: jest.Mock };
   let prisma: {
     conversationParticipant: {
       findUnique: jest.Mock;
+      findMany: jest.Mock;
       createMany: jest.Mock;
       update: jest.Mock;
     };
@@ -29,6 +32,7 @@ describe('MessagingService', () => {
     prisma = {
       conversationParticipant: {
         findUnique: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         createMany: jest.fn(),
         update: jest.fn(),
       },
@@ -52,10 +56,13 @@ describe('MessagingService', () => {
       }),
     };
 
+    notifications = { create: jest.fn() };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MessagingService,
         { provide: PrismaService, useValue: prisma },
+        { provide: NotificationsService, useValue: notifications },
       ],
     }).compile();
 
@@ -113,14 +120,20 @@ describe('MessagingService', () => {
       prisma.conversationParticipant.findUnique.mockResolvedValue({
         id: 'part-1',
       });
-      prisma.message.create.mockResolvedValue({ id: 'msg-1' });
+      prisma.message.create.mockResolvedValue({
+        id: 'msg-1',
+        sender: { id: 'user-1', firstName: 'Alex', lastName: 'Doe' },
+      });
       prisma.conversation.update.mockResolvedValue({ id: 'conv-1' });
 
       const result = await service.sendMessage('user-1', 'conv-1', {
         content: 'hi',
       });
 
-      expect(result).toEqual({ id: 'msg-1' });
+      expect(result).toEqual({
+        id: 'msg-1',
+        sender: { id: 'user-1', firstName: 'Alex', lastName: 'Doe' },
+      });
     });
   });
 
