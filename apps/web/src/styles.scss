@@ -1,0 +1,356 @@
+// ─── RecruitPro Design System ──────────────────────────────
+// Premium SaaS Design Tokens
+// ────────────────────────────────────────────────────────────
+
+// ─── Color Palette ─────────────────────────────────────────
+:root {
+  // Primary — Deep Indigo
+  --rp-primary-50: #eef0ff;
+  --rp-primary-100: #dfe3ff;
+  --rp-primary-200: #c5caff;
+  --rp-primary-300: #a2a5ff;
+  --rp-primary-400: #8079ff;
+  --rp-primary-500: #6c5ce7;
+  --rp-primary-600: #5a3fd4;
+  --rp-primary-700: #4c32b1;
+  --rp-primary-800: #3e2b8f;
+  --rp-primary-900: #352975;
+  --rp-primary: var(--rp-primary-500);
+
+  // Accent — Vibrant Teal
+  --rp-accent-50: #ecfdf5;
+  --rp-accent-100: #d1fae5;
+  --rp-accent-200: #a7f3d0;
+  --rp-accent-300: #6ee7b7;
+  --rp-accent-400: #34d399;
+  --rp-accent-500: #00b894;
+  --rp-accent-600: #059669;
+  --rp-accent-700: #047857;
+  --rp-accent-800: #065f46;
+  --rp-accent-900: #064e3b;
+  --rp-accent: var(--rp-accent-500);
+
+  // Neutral
+  --rp-gray-50: #f8fafc;
+  --rp-gray-100: #f1f5f9;
+  --rp-gray-200: #e2e8f0;
+  --rp-gray-300: #cbd5e1;
+  --rp-gray-400: #94a3b8;
+  --rp-gray-500: #64748b;
+  --rp-gray-600: #475569;
+  --rp-gray-700: #334155;
+  --rp-gray-800: #1e293b;
+  --rp-gray-900: #0f172a;
+
+  // Semantic
+  --rp-success: #00b894;
+  --rp-warning: #fdcb6e;
+  --rp-danger: #e17055;
+  --rp-info: #74b9ff;
+
+  // Backgrounds
+  --rp-bg-primary: #ffffff;
+  --rp-bg-secondary: #f8fafc;
+  --rp-bg-tertiary: #f1f5f9;
+  --rp-bg-elevated: #ffffff;
+
+  // Text
+  --rp-text-primary: #0f172a;
+  --rp-text-secondary: #475569;
+  --rp-text-tertiary: #94a3b8;
+  --rp-text-inverse: #ffffff;
+
+  // Borders
+  --rp-border-light: #e2e8f0;
+  --rp-border-medium: #cbd5e1;
+
+  // ─── Shadows ───────────────────────────────────────────
+  --rp-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --rp-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --rp-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --rp-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --rp-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  // ─── Typography ────────────────────────────────────────
+  --rp-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --rp-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  // ─── Spacing ───────────────────────────────────────────
+  --rp-space-1: 0.25rem;
+  --rp-space-2: 0.5rem;
+  --rp-space-3: 0.75rem;
+  --rp-space-4: 1rem;
+  --rp-space-5: 1.25rem;
+  --rp-space-6: 1.5rem;
+  --rp-space-8: 2rem;
+  --rp-space-10: 2.5rem;
+  --rp-space-12: 3rem;
+  --rp-space-16: 4rem;
+  --rp-space-20: 5rem;
+
+  // ─── Border Radius ─────────────────────────────────────
+  --rp-radius-sm: 0.375rem;
+  --rp-radius-md: 0.5rem;
+  --rp-radius-lg: 0.75rem;
+  --rp-radius-xl: 1rem;
+  --rp-radius-2xl: 1.5rem;
+  --rp-radius-full: 9999px;
+
+  // ─── Transitions ───────────────────────────────────────
+  --rp-transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --rp-transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --rp-transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  // ─── Z-Index Scale ─────────────────────────────────────
+  --rp-z-dropdown: 1000;
+  --rp-z-sticky: 1020;
+  --rp-z-fixed: 1030;
+  --rp-z-modal-backdrop: 1040;
+  --rp-z-modal: 1050;
+  --rp-z-popover: 1060;
+  --rp-z-tooltip: 1070;
+  --rp-z-toast: 1080;
+
+  // ─── Layout ────────────────────────────────────────────
+  --rp-header-height: 64px;
+  --rp-sidebar-width: 260px;
+  --rp-sidebar-collapsed-width: 72px;
+  --rp-max-content-width: 1280px;
+}
+
+// ─── Dark Mode ───────────────────────────────────────────
+[data-theme='dark'] {
+  --rp-bg-primary: #0f172a;
+  --rp-bg-secondary: #1e293b;
+  --rp-bg-tertiary: #334155;
+  --rp-bg-elevated: #1e293b;
+
+  --rp-text-primary: #f1f5f9;
+  --rp-text-secondary: #94a3b8;
+  --rp-text-tertiary: #64748b;
+
+  --rp-border-light: #334155;
+  --rp-border-medium: #475569;
+
+  --rp-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --rp-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --rp-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+}
+
+// ─── Global Styles ───────────────────────────────────────
+// Fonts loaded via <link> in index.html
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--rp-font-sans);
+  color: var(--rp-text-primary);
+  background-color: var(--rp-bg-secondary);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+// ─── Typography Utilities ────────────────────────────────
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--rp-text-primary);
+}
+
+h1 { font-size: 2.25rem; letter-spacing: -0.025em; }
+h2 { font-size: 1.875rem; letter-spacing: -0.02em; }
+h3 { font-size: 1.5rem; }
+h4 { font-size: 1.25rem; }
+h5 { font-size: 1.125rem; }
+h6 { font-size: 1rem; }
+
+p {
+  color: var(--rp-text-secondary);
+  line-height: 1.7;
+}
+
+a {
+  color: var(--rp-primary);
+  text-decoration: none;
+  transition: color var(--rp-transition-fast);
+
+  &:hover {
+    color: var(--rp-primary-600);
+  }
+}
+
+// ─── Scrollbar ───────────────────────────────────────────
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--rp-gray-300);
+  border-radius: var(--rp-radius-full);
+
+  &:hover {
+    background: var(--rp-gray-400);
+  }
+}
+
+// ─── Selection ───────────────────────────────────────────
+::selection {
+  background-color: var(--rp-primary-200);
+  color: var(--rp-primary-900);
+}
+
+// ─── Focus Ring ──────────────────────────────────────────
+:focus-visible {
+  outline: 2px solid var(--rp-primary);
+  outline-offset: 2px;
+  border-radius: var(--rp-radius-sm);
+}
+
+// ─── Utility Classes ─────────────────────────────────────
+.container {
+  max-width: var(--rp-max-content-width);
+  margin: 0 auto;
+  padding: 0 var(--rp-space-6);
+}
+
+.page-section {
+  padding: var(--rp-space-16) 0;
+}
+
+.card {
+  background: var(--rp-bg-elevated);
+  border-radius: var(--rp-radius-lg);
+  border: 1px solid var(--rp-border-light);
+  box-shadow: var(--rp-shadow-sm);
+  transition: box-shadow var(--rp-transition-normal);
+
+  &:hover {
+    box-shadow: var(--rp-shadow-md);
+  }
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--rp-space-1) var(--rp-space-3);
+  border-radius: var(--rp-radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+
+  &--primary {
+    background: var(--rp-primary-100);
+    color: var(--rp-primary-700);
+  }
+
+  &--success {
+    background: var(--rp-accent-100);
+    color: var(--rp-accent-700);
+  }
+
+  &--warning {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  &--danger {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+}
+
+// ─── Skeleton Loader ─────────────────────────────────────
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--rp-gray-200) 0%,
+    var(--rp-gray-100) 50%,
+    var(--rp-gray-200) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  border-radius: var(--rp-radius-sm);
+}
+
+@keyframes skeleton-pulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+// ─── Angular Material Theme Overrides ────────────────────
+.mat-mdc-button,
+.mat-mdc-raised-button,
+.mat-mdc-outlined-button {
+  border-radius: var(--rp-radius-md) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em;
+}
+
+.mat-mdc-card {
+  border-radius: var(--rp-radius-lg) !important;
+  box-shadow: var(--rp-shadow-sm) !important;
+}
+
+.mat-mdc-form-field {
+  .mdc-text-field {
+    border-radius: var(--rp-radius-md) !important;
+  }
+}
+
+// ─── Animations ──────────────────────────────────────────
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--rp-transition-normal) ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp var(--rp-transition-slow) ease-out;
+}
+
+// ─── Responsive Breakpoints ──────────────────────────────
+// sm: 640px, md: 768px, lg: 1024px, xl: 1280px
