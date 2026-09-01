@@ -1,0 +1,187 @@
+// We inherit most layout and form styles from login.component.scss via the @Component styleUrls
+
+// ─── Role Selector ───────────────────────────────────────
+.role-selector {
+  display: flex;
+  gap: var(--rp-space-4);
+  margin-bottom: var(--rp-space-2);
+}
+
+.role-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--rp-space-3);
+  padding: var(--rp-space-3);
+  border: 1.5px solid var(--rp-border-light);
+  border-radius: var(--rp-radius-lg);
+  cursor: pointer;
+  background: var(--rp-bg-primary);
+  transition: all var(--rp-transition-fast);
+
+  &:hover {
+    border-color: var(--rp-primary-300);
+    background: var(--rp-primary-50);
+  }
+
+  &.selected {
+    border-color: var(--rp-primary);
+    background: var(--rp-primary-50);
+    box-shadow: 0 0 0 1px var(--rp-primary);
+
+    .role-icon {
+      color: var(--rp-primary);
+      background: #ffffff;
+    }
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.role-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--rp-bg-tertiary);
+  color: var(--rp-text-tertiary);
+  transition: all var(--rp-transition-fast);
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.role-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.role-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--rp-text-primary);
+}
+
+.role-desc {
+  font-size: 0.75rem;
+  color: var(--rp-text-secondary);
+}
+
+// ─── Layout Utils ────────────────────────────────────────
+.form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--rp-space-4);
+
+  @media (max-width: 500px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.terms-row {
+  margin-top: var(--rp-space-2);
+  
+  a {
+    font-weight: 600;
+    color: var(--rp-primary);
+    
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+.d-block {
+  display: block;
+}
+
+.mt-1 {
+  margin-top: var(--rp-space-1);
+}
+
+// ─── Password Strength ───────────────────────────────────
+.password-strength {
+  margin-top: var(--rp-space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--rp-space-3);
+}
+
+.strength-bars {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+}
+
+.bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--rp-border-light);
+  transition: all var(--rp-transition-normal);
+
+  &.active {
+    &.weak { background: var(--rp-danger); }
+    &.fair { background: var(--rp-warning); }
+    &.good { background: var(--rp-info); }
+    &.strong { background: var(--rp-success); }
+  }
+}
+
+.strength-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  width: 45px;
+  text-align: right;
+
+  &.weak { color: var(--rp-danger); }
+  &.fair { color: var(--rp-warning); }
+  &.good { color: var(--rp-info); }
+  &.strong { color: var(--rp-success); }
+}
+
+// ─── Specific feature list for register side panel ───────
+.features-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rp-space-4);
+  margin-bottom: var(--rp-space-8);
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: var(--rp-space-3);
+  font-size: 1.05rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.feature-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: #a78bfa;
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+}
