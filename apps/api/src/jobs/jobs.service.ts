@@ -13,10 +13,23 @@ import {
   RemoteType,
 } from '@prisma/client';
 import slugify from 'slugify';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { PLAN_CATALOG } from '../subscriptions/plan-catalog';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '../audit/audit-action.enum';
+
+const NON_ACTIVE_JOB_STATUSES: JobStatus[] = [
+  JobStatus.CLOSED,
+  JobStatus.ARCHIVED,
+];
 
 @Injectable()
 export class JobsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly subscriptions: SubscriptionsService,
+    private readonly audit: AuditService,
+  ) {}
 
   private generateSlug(title: string): string {
     return (
@@ -38,11 +51,30 @@ export class JobsService {
       );
     }
 
+    const plan = await this.subscriptions.getActivePlan(tenantId);
+    const jobLimit = PLAN_CATALOG[plan].jobLimit;
+
+    if (jobLimit !== null) {
+      const activeJobCount = await this.prisma.job.count({
+        where: {
+          tenantId,
+          deletedAt: null,
+          status: { notIn: NON_ACTIVE_JOB_STATUSES },
+        },
+      });
+
+      if (activeJobCount >= jobLimit) {
+        throw new ForbiddenException(
+          `Your ${plan.toLowerCase()} plan allows up to ${jobLimit} active job postings. Upgrade your plan to post more.`,
+        );
+      }
+    }
+
     const { skills, ...jobData } = createDto;
     const slug = this.generateSlug(jobData.title);
 
-    return this.prisma.$transaction(async (tx) => {
-      const job = await tx.job.create({
+    const job = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.job.create({
         data: {
           ...jobData,
           experienceLevel: jobData.experienceLevel || ExperienceLevel.MID,
@@ -71,7 +103,7 @@ export class JobsService {
           }
           await tx.jobSkill.create({
             data: {
-              jobId: job.id,
+              jobId: created.id,
               skillId: skillRecord.id,
               isRequired: true,
             },
@@ -79,13 +111,24 @@ export class JobsService {
         }
       }
 
-      return job;
+      return created;
     });
+
+    await this.audit.log({
+      userId,
+      tenantId,
+      action: AuditAction.JOB_CREATED,
+      entityType: 'Job',
+      entityId: job.id,
+      newValue: { title: job.title, status: job.status },
+    });
+
+    return job;
   }
 
-  async findAll(tenantId: string, filterDto: JobFilterDto) {
+  async findAll(tenantId: string | undefined, filterDto: JobFilterDto) {
     const where: Prisma.JobWhereInput = {
-      tenantId,
+      ...(tenantId && { tenantId }),
       deletedAt: null,
       status: JobStatus.PUBLISHED, // Default to only published jobs for public search
     };
@@ -153,7 +196,6 @@ export class JobsService {
   }
 
   async findCompanyJobs(
-    tenantId: string,
     userId: string,
     isPlatformAdmin: boolean,
     companyId: string,
@@ -161,7 +203,7 @@ export class JobsService {
     await this.assertCompanyAccess(userId, isPlatformAdmin, companyId);
 
     return this.prisma.job.findMany({
-      where: { tenantId, companyId, deletedAt: null },
+      where: { companyId, deletedAt: null },
       include: {
         _count: { select: { applications: true } },
       },
@@ -169,15 +211,17 @@ export class JobsService {
     });
   }
 
-  async findOne(tenantId: string, idOrSlug: string) {
+  async findOne(tenantId: string | undefined, idOrSlug: string) {
     const isUuid = idOrSlug.match(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     );
 
     const job = await this.prisma.job.findFirst({
       where: {
-        tenantId,
+        ...(tenantId && { tenantId }),
         deletedAt: null,
+        // Anonymous (public) viewers may only ever see published jobs.
+        ...(!tenantId && { status: JobStatus.PUBLISHED }),
         OR: isUuid ? [{ id: idOrSlug }] : [{ slug: idOrSlug }],
       },
       include: {
@@ -196,14 +240,13 @@ export class JobsService {
   }
 
   async update(
-    tenantId: string,
     userId: string,
     isPlatformAdmin: boolean,
     jobId: string,
     updateDto: UpdateJobDto,
   ) {
     const job = await this.prisma.job.findFirst({
-      where: { id: jobId, tenantId, deletedAt: null },
+      where: { id: jobId, deletedAt: null },
     });
 
     if (!job) {
@@ -214,7 +257,7 @@ export class JobsService {
 
     const { skills, ...jobData } = updateDto;
 
-    return this.prisma.$transaction(async (tx) => {
+    const updated = await this.prisma.$transaction(async (tx) => {
       const updatedJob = await tx.job.update({
         where: { id: jobId },
         data: {
@@ -258,16 +301,23 @@ export class JobsService {
 
       return updatedJob;
     });
+
+    await this.audit.log({
+      userId,
+      tenantId: job.tenantId,
+      action: AuditAction.JOB_UPDATED,
+      entityType: 'Job',
+      entityId: jobId,
+      previousValue: { status: job.status, title: job.title },
+      newValue: { status: updated.status, title: updated.title },
+    });
+
+    return updated;
   }
 
-  async remove(
-    tenantId: string,
-    userId: string,
-    isPlatformAdmin: boolean,
-    jobId: string,
-  ) {
+  async remove(userId: string, isPlatformAdmin: boolean, jobId: string) {
     const job = await this.prisma.job.findFirst({
-      where: { id: jobId, tenantId, deletedAt: null },
+      where: { id: jobId, deletedAt: null },
     });
 
     if (!job) {
@@ -276,9 +326,20 @@ export class JobsService {
 
     await this.assertCompanyAccess(userId, isPlatformAdmin, job.companyId);
 
-    return this.prisma.job.update({
+    const removed = await this.prisma.job.update({
       where: { id: jobId },
       data: { deletedAt: new Date() },
     });
+
+    await this.audit.log({
+      userId,
+      tenantId: job.tenantId,
+      action: AuditAction.JOB_DELETED,
+      entityType: 'Job',
+      entityId: jobId,
+      previousValue: { title: job.title },
+    });
+
+    return removed;
   }
 }
