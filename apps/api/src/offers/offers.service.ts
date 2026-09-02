@@ -6,7 +6,11 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../common/services/prisma.service';
-import { ApplicationStatus, OfferStatus } from '@prisma/client';
+import {
+  ApplicationStatus,
+  OfferStatus,
+  NotificationType,
+} from '@prisma/client';
 import {
   CreateOfferDto,
   UpdateOfferDto,
@@ -15,6 +19,9 @@ import {
   OfferFilterDto,
 } from './dto/offer.dto';
 import { PaginatedResponseDto } from '../common/dto/pagination.dto';
+import { NotificationsService } from '../notifications/notifications.service';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '../audit/audit-action.enum';
 
 const TERMINAL_STATUSES: OfferStatus[] = [
   OfferStatus.ACCEPTED,
@@ -28,14 +35,20 @@ const OFFER_INCLUDE = {
     select: {
       id: true,
       candidateId: true,
-      job: { select: { id: true, title: true, companyId: true } },
+      job: {
+        select: { id: true, title: true, companyId: true, tenantId: true },
+      },
     },
   },
 };
 
 @Injectable()
 export class OffersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+    private readonly audit: AuditService,
+  ) {}
 
   private async assertCompanyAccess(
     userId: string,
@@ -77,14 +90,12 @@ export class OffersService {
     return { ...offer, status: OfferStatus.EXPIRED };
   }
 
-  async create(
-    tenantId: string,
-    userId: string,
-    isPlatformAdmin: boolean,
-    dto: CreateOfferDto,
-  ) {
+  // Ownership/company access is fully determined by candidateId and companyId
+  // (both globally unique), so these lookups never need a separate tenant filter —
+  // which matters because candidates and platform admins have no tenantId of their own.
+  async create(userId: string, isPlatformAdmin: boolean, dto: CreateOfferDto) {
     const application = await this.prisma.application.findFirst({
-      where: { id: dto.applicationId, job: { tenantId } },
+      where: { id: dto.applicationId },
       include: { job: { select: { companyId: true } } },
     });
 
@@ -124,14 +135,9 @@ export class OffersService {
     });
   }
 
-  async findMyOffers(
-    tenantId: string,
-    candidateId: string,
-    filterDto: OfferFilterDto,
-  ) {
+  async findMyOffers(candidateId: string, filterDto: OfferFilterDto) {
     const where = {
       candidateId,
-      application: { job: { tenantId } },
       status: { not: OfferStatus.DRAFT },
       ...(filterDto.status && { status: filterDto.status }),
     };
@@ -156,13 +162,12 @@ export class OffersService {
   }
 
   async findByApplication(
-    tenantId: string,
     userId: string,
     isPlatformAdmin: boolean,
     applicationId: string,
   ) {
     const application = await this.prisma.application.findFirst({
-      where: { id: applicationId, job: { tenantId } },
+      where: { id: applicationId },
       include: { job: { select: { companyId: true } } },
     });
 
@@ -188,14 +193,9 @@ export class OffersService {
     return this.resolveForViewer(offer, isOwner);
   }
 
-  async findOne(
-    tenantId: string,
-    userId: string,
-    isPlatformAdmin: boolean,
-    offerId: string,
-  ) {
+  async findOne(userId: string, isPlatformAdmin: boolean, offerId: string) {
     const offer = await this.prisma.offer.findFirst({
-      where: { id: offerId, application: { job: { tenantId } } },
+      where: { id: offerId },
       include: OFFER_INCLUDE,
     });
 
@@ -238,14 +238,13 @@ export class OffersService {
   }
 
   async update(
-    tenantId: string,
     userId: string,
     isPlatformAdmin: boolean,
     offerId: string,
     dto: UpdateOfferDto,
   ) {
     const offer = await this.prisma.offer.findFirst({
-      where: { id: offerId, application: { job: { tenantId } } },
+      where: { id: offerId },
       include: OFFER_INCLUDE,
     });
 
@@ -278,14 +277,9 @@ export class OffersService {
     });
   }
 
-  async send(
-    tenantId: string,
-    userId: string,
-    isPlatformAdmin: boolean,
-    offerId: string,
-  ) {
+  async send(userId: string, isPlatformAdmin: boolean, offerId: string) {
     const offer = await this.prisma.offer.findFirst({
-      where: { id: offerId, application: { job: { tenantId } } },
+      where: { id: offerId },
       include: OFFER_INCLUDE,
     });
 
@@ -303,8 +297,8 @@ export class OffersService {
       throw new BadRequestException('Only a draft offer can be sent');
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.offer.update({
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.offer.update({
         where: { id: offerId },
         data: { status: OfferStatus.SENT },
       });
@@ -324,18 +318,32 @@ export class OffersService {
         },
       });
 
-      return updated;
+      return result;
     });
+
+    await this.notifications.create(
+      offer.application.candidateId,
+      NotificationType.OFFER_RECEIVED,
+      'New job offer',
+      `You have received an offer for "${offer.application.job.title}"`,
+      { offerId, applicationId: offer.application.id },
+    );
+
+    await this.audit.log({
+      userId,
+      tenantId: offer.application.job.tenantId,
+      action: AuditAction.OFFER_SENT,
+      entityType: 'Offer',
+      entityId: offerId,
+      newValue: { status: updated.status },
+    });
+
+    return updated;
   }
 
-  async withdraw(
-    tenantId: string,
-    userId: string,
-    isPlatformAdmin: boolean,
-    offerId: string,
-  ) {
+  async withdraw(userId: string, isPlatformAdmin: boolean, offerId: string) {
     const offer = await this.prisma.offer.findFirst({
-      where: { id: offerId, application: { job: { tenantId } } },
+      where: { id: offerId },
       include: OFFER_INCLUDE,
     });
 
@@ -361,18 +369,9 @@ export class OffersService {
     });
   }
 
-  async respond(
-    tenantId: string,
-    candidateId: string,
-    offerId: string,
-    dto: RespondToOfferDto,
-  ) {
+  async respond(candidateId: string, offerId: string, dto: RespondToOfferDto) {
     const offer = await this.prisma.offer.findFirst({
-      where: {
-        id: offerId,
-        candidateId,
-        application: { job: { tenantId } },
-      },
+      where: { id: offerId, candidateId },
       include: OFFER_INCLUDE,
     });
 
@@ -400,8 +399,8 @@ export class OffersService {
         ? ApplicationStatus.HIRED
         : ApplicationStatus.REJECTED;
 
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.offer.update({
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.offer.update({
         where: { id: offerId },
         data: { status: newOfferStatus, respondedAt: new Date() },
       });
@@ -421,7 +420,31 @@ export class OffersService {
         },
       });
 
-      return updated;
+      return result;
     });
+
+    await this.notifications.create(
+      offer.createdById,
+      dto.decision === OfferResponseDecision.ACCEPTED
+        ? NotificationType.OFFER_ACCEPTED
+        : NotificationType.OFFER_REJECTED,
+      `Offer ${dto.decision.toLowerCase()}`,
+      `The candidate has ${dto.decision.toLowerCase()} the offer for "${offer.application.job.title}"`,
+      { offerId, applicationId: offer.application.id },
+    );
+
+    await this.audit.log({
+      userId: candidateId,
+      tenantId: offer.application.job.tenantId,
+      action:
+        dto.decision === OfferResponseDecision.ACCEPTED
+          ? AuditAction.OFFER_ACCEPTED
+          : AuditAction.OFFER_REJECTED,
+      entityType: 'Offer',
+      entityId: offerId,
+      newValue: { status: updated.status },
+    });
+
+    return updated;
   }
 }

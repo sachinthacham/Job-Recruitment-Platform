@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { OffersService } from './offers.service';
 import { PrismaService } from '../common/services/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { AuditService } from '../audit/audit.service';
 import { Currency, OfferStatus } from '@prisma/client';
 import { OfferResponseDecision } from './dto/offer.dto';
 
@@ -46,7 +48,12 @@ describe('OffersService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [OffersService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        OffersService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: NotificationsService, useValue: { create: jest.fn() } },
+        { provide: AuditService, useValue: { log: jest.fn() } },
+      ],
     }).compile();
 
     service = module.get<OffersService>(OffersService);
@@ -69,9 +76,9 @@ describe('OffersService', () => {
     it('throws NotFoundException when the application does not exist in this tenant', async () => {
       prisma.application.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.create('tenant-1', 'recruiter-1', false, dto),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.create('recruiter-1', false, dto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('throws ForbiddenException when the recruiter is not part of the job company', async () => {
@@ -84,9 +91,9 @@ describe('OffersService', () => {
         companyId: 'company-2',
       });
 
-      await expect(
-        service.create('tenant-1', 'recruiter-1', false, dto),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.create('recruiter-1', false, dto)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('throws ConflictException when an offer already exists for the application', async () => {
@@ -100,9 +107,9 @@ describe('OffersService', () => {
       });
       prisma.offer.findUnique.mockResolvedValue({ id: 'existing-offer' });
 
-      await expect(
-        service.create('tenant-1', 'recruiter-1', false, dto),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.create('recruiter-1', false, dto)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('creates a draft offer when none exists yet', async () => {
@@ -117,12 +124,7 @@ describe('OffersService', () => {
       prisma.offer.findUnique.mockResolvedValue(null);
       prisma.offer.create.mockResolvedValue({ id: 'offer-1' });
 
-      const result = await service.create(
-        'tenant-1',
-        'recruiter-1',
-        false,
-        dto,
-      );
+      const result = await service.create('recruiter-1', false, dto);
 
       expect(result).toEqual({ id: 'offer-1' });
     });
@@ -144,7 +146,7 @@ describe('OffersService', () => {
       });
 
       await expect(
-        service.send('tenant-1', 'recruiter-1', false, 'offer-1'),
+        service.send('recruiter-1', false, 'offer-1'),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -162,12 +164,7 @@ describe('OffersService', () => {
         companyId: 'company-1',
       });
 
-      const result = await service.send(
-        'tenant-1',
-        'recruiter-1',
-        false,
-        'offer-1',
-      );
+      const result = await service.send('recruiter-1', false, 'offer-1');
 
       expect(result).toEqual({ id: 'offer-1' });
     });
@@ -178,7 +175,7 @@ describe('OffersService', () => {
       prisma.offer.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.respond('tenant-1', 'candidate-1', 'offer-1', {
+        service.respond('candidate-1', 'offer-1', {
           decision: OfferResponseDecision.ACCEPTED,
         }),
       ).rejects.toThrow(NotFoundException);
@@ -197,7 +194,7 @@ describe('OffersService', () => {
       });
 
       await expect(
-        service.respond('tenant-1', 'candidate-1', 'offer-1', {
+        service.respond('candidate-1', 'offer-1', {
           decision: OfferResponseDecision.ACCEPTED,
         }),
       ).rejects.toThrow(BadRequestException);
@@ -217,7 +214,7 @@ describe('OffersService', () => {
       prisma.offer.update.mockResolvedValue({});
 
       await expect(
-        service.respond('tenant-1', 'candidate-1', 'offer-1', {
+        service.respond('candidate-1', 'offer-1', {
           decision: OfferResponseDecision.ACCEPTED,
         }),
       ).rejects.toThrow(BadRequestException);
@@ -235,14 +232,9 @@ describe('OffersService', () => {
         },
       });
 
-      const result = await service.respond(
-        'tenant-1',
-        'candidate-1',
-        'offer-1',
-        {
-          decision: OfferResponseDecision.ACCEPTED,
-        },
-      );
+      const result = await service.respond('candidate-1', 'offer-1', {
+        decision: OfferResponseDecision.ACCEPTED,
+      });
 
       expect(result).toEqual({ id: 'offer-1' });
     });

@@ -35,12 +35,7 @@ export class OffersController {
   @ApiOperation({ summary: 'Create a draft offer for an application' })
   create(@CurrentUser() user: JwtPayload, @Body() dto: CreateOfferDto) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
-    return this.offersService.create(
-      user.tenantId!,
-      user.sub,
-      isPlatformAdmin,
-      dto,
-    );
+    return this.offersService.create(user.sub, isPlatformAdmin, dto);
   }
 
   @Get('me')
@@ -50,7 +45,7 @@ export class OffersController {
     @CurrentUser() user: JwtPayload,
     @Query() filterDto: OfferFilterDto,
   ) {
-    return this.offersService.findMyOffers(user.tenantId!, user.sub, filterDto);
+    return this.offersService.findMyOffers(user.sub, filterDto);
   }
 
   @Get('application/:applicationId')
@@ -62,7 +57,6 @@ export class OffersController {
   ) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
     return this.offersService.findByApplication(
-      user.tenantId!,
       user.sub,
       isPlatformAdmin,
       applicationId,
@@ -74,12 +68,7 @@ export class OffersController {
   @ApiOperation({ summary: 'Get a single offer by id' })
   findOne(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
-    return this.offersService.findOne(
-      user.tenantId!,
-      user.sub,
-      isPlatformAdmin,
-      id,
-    );
+    return this.offersService.findOne(user.sub, isPlatformAdmin, id);
   }
 
   @Patch(':id')
@@ -91,13 +80,7 @@ export class OffersController {
     @Body() dto: UpdateOfferDto,
   ) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
-    return this.offersService.update(
-      user.tenantId!,
-      user.sub,
-      isPlatformAdmin,
-      id,
-      dto,
-    );
+    return this.offersService.update(user.sub, isPlatformAdmin, id, dto);
   }
 
   @Patch(':id/send')
@@ -105,12 +88,7 @@ export class OffersController {
   @ApiOperation({ summary: 'Send a draft offer to the candidate' })
   send(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
-    return this.offersService.send(
-      user.tenantId!,
-      user.sub,
-      isPlatformAdmin,
-      id,
-    );
+    return this.offersService.send(user.sub, isPlatformAdmin, id);
   }
 
   @Patch(':id/respond')
@@ -121,7 +99,7 @@ export class OffersController {
     @Param('id') id: string,
     @Body() dto: RespondToOfferDto,
   ) {
-    return this.offersService.respond(user.tenantId!, user.sub, id, dto);
+    return this.offersService.respond(user.sub, id, dto);
   }
 
   @Delete(':id')
@@ -129,11 +107,6 @@ export class OffersController {
   @ApiOperation({ summary: 'Withdraw an offer' })
   withdraw(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     const isPlatformAdmin = user.roles.includes('PLATFORM_ADMIN');
-    return this.offersService.withdraw(
-      user.tenantId!,
-      user.sub,
-      isPlatformAdmin,
-      id,
-    );
+    return this.offersService.withdraw(user.sub, isPlatformAdmin, id);
   }
 }
