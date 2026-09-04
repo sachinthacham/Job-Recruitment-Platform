@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { SubscriptionsService } from './subscriptions.service';
 import { PrismaService } from '../common/services/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
 
 describe('SubscriptionsService', () => {
@@ -54,6 +55,7 @@ describe('SubscriptionsService', () => {
       providers: [
         SubscriptionsService,
         { provide: PrismaService, useValue: prisma },
+        { provide: AuditService, useValue: { log: jest.fn() } },
       ],
     }).compile();
 
@@ -107,7 +109,7 @@ describe('SubscriptionsService', () => {
         plan: SubscriptionPlan.STARTER,
       });
 
-      const result = await service.subscribe('tenant-1', false, {
+      const result = await service.subscribe('user-1', 'tenant-1', false, {
         plan: SubscriptionPlan.STARTER,
       });
 
@@ -124,7 +126,7 @@ describe('SubscriptionsService', () => {
         plan: SubscriptionPlan.FREE,
       });
 
-      await service.subscribe('tenant-1', false, {
+      await service.subscribe('user-1', 'tenant-1', false, {
         plan: SubscriptionPlan.FREE,
       });
 
@@ -138,7 +140,7 @@ describe('SubscriptionsService', () => {
         plan: SubscriptionPlan.PROFESSIONAL,
       });
 
-      await service.subscribe('tenant-1', false, {
+      await service.subscribe('user-1', 'tenant-1', false, {
         plan: SubscriptionPlan.PROFESSIONAL,
       });
 
@@ -152,7 +154,7 @@ describe('SubscriptionsService', () => {
       prisma.subscription.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.cancel('tenant-1', false, undefined),
+        service.cancel('user-1', 'tenant-1', false, undefined),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -166,7 +168,12 @@ describe('SubscriptionsService', () => {
         status: SubscriptionStatus.CANCELLED,
       });
 
-      const result = await service.cancel('tenant-1', false, undefined);
+      const result = await service.cancel(
+        'user-1',
+        'tenant-1',
+        false,
+        undefined,
+      );
 
       expect(result).toEqual({
         id: 'sub-1',

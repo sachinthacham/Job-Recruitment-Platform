@@ -9,6 +9,8 @@ import { Currency, SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
 import { SubscribeDto, PaymentFilterDto } from './dto/subscription.dto';
 import { PaginatedResponseDto } from '../common/dto/pagination.dto';
 import { PLAN_CATALOG } from './plan-catalog';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '../audit/audit-action.enum';
 
 const OPEN_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = [
   SubscriptionStatus.ACTIVE,
@@ -26,7 +28,10 @@ function addDays(date: Date, days: number): Date {
 
 @Injectable()
 export class SubscriptionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   private resolveTenantId(
     userTenantId: string | null,
@@ -54,6 +59,16 @@ export class SubscriptionsService {
 
   getPlans() {
     return Object.values(PLAN_CATALOG);
+  }
+
+  /** Resolves the plan currently active for a tenant, defaulting to FREE. */
+  async getActivePlan(tenantId: string): Promise<SubscriptionPlan> {
+    const subscription = await this.prisma.subscription.findFirst({
+      where: { tenantId, status: { in: OPEN_SUBSCRIPTION_STATUSES } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return subscription?.plan ?? SubscriptionPlan.FREE;
   }
 
   async getCurrent(
@@ -85,6 +100,7 @@ export class SubscriptionsService {
   }
 
   async subscribe(
+    userId: string,
     userTenantId: string | null,
     isPlatformAdmin: boolean,
     dto: SubscribeDto,
@@ -104,7 +120,7 @@ export class SubscriptionsService {
     const currentPeriodEnd = addDays(now, BILLING_PERIOD_DAYS);
     const planDetails = PLAN_CATALOG[dto.plan];
 
-    return this.prisma.$transaction(async (tx) => {
+    const subscription = await this.prisma.$transaction(async (tx) => {
       const subscription = existing
         ? await tx.subscription.update({
             where: { id: existing.id },
@@ -139,9 +155,23 @@ export class SubscriptionsService {
 
       return subscription;
     });
+
+    await this.audit.log({
+      userId,
+      tenantId,
+      action: existing
+        ? AuditAction.SUBSCRIPTION_UPDATED
+        : AuditAction.SUBSCRIPTION_CREATED,
+      entityType: 'Subscription',
+      entityId: subscription.id,
+      newValue: { plan: subscription.plan, status: subscription.status },
+    });
+
+    return subscription;
   }
 
   async cancel(
+    userId: string,
     userTenantId: string | null,
     isPlatformAdmin: boolean,
     requestedTenantId?: string,
@@ -161,10 +191,21 @@ export class SubscriptionsService {
       throw new NotFoundException('No active subscription to cancel');
     }
 
-    return this.prisma.subscription.update({
+    const cancelled = await this.prisma.subscription.update({
       where: { id: subscription.id },
       data: { status: SubscriptionStatus.CANCELLED, cancelledAt: new Date() },
     });
+
+    await this.audit.log({
+      userId,
+      tenantId,
+      action: AuditAction.SUBSCRIPTION_CANCELLED,
+      entityType: 'Subscription',
+      entityId: subscription.id,
+      previousValue: { plan: subscription.plan },
+    });
+
+    return cancelled;
   }
 
   async listPayments(
